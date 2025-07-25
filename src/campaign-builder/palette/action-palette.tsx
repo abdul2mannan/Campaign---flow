@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useState } from "react";
 import { X, Search, Eye, Zap } from "lucide-react";
+import type { Node } from "@xyflow/react";
 import { nodeRegistry } from "@/campaign-builder/registry/nodeRegistry";
 import { createNode } from "@/campaign-builder/registry/factory";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
@@ -10,23 +10,41 @@ import { useFlowStore } from "@/campaign-builder/store/flow-store";
 interface ActionPaletteProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Called right after a node is created & added to the flow */
+  onNodeAdded?: (node: Node) => void;
+  /** Where the new node should appear if the user doesn't drag‑drop */
   position?: { x: number; y: number };
 }
 
-export function ActionPalette({ isOpen, onClose, position }: ActionPaletteProps) {
+export function ActionPalette({
+  isOpen,
+  onClose,
+  onNodeAdded,
+  position,
+}: ActionPaletteProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const addNode = useFlowStore((s) => s.addNodeAtEnd);
 
-  const filteredNodes = Object.values(nodeRegistry).filter(node =>
-    node.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    node.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  // ────────────────────────────────────────────────────────────────
+  // Helpers
+  // ────────────────────────────────────────────────────────────────
+  const filteredNodes = Object.values(nodeRegistry).filter((node) =>
+    (node.title + node.description)
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
   );
 
   const handleAddNode = (nodeType: string) => {
-    const node = createNode(nodeType, {
+    const newNode = createNode(nodeType, {
       position: position || { x: 400, y: 100 },
     });
-    addNode(node);
+
+    // Add to the Zustand store so it appears on the canvas
+    addNode(newNode);
+
+    // Notify parent so it can open the ConfigPanel, etc.
+    onNodeAdded?.(newNode);
+
     onClose();
   };
 
@@ -52,10 +70,13 @@ export function ActionPalette({ isOpen, onClose, position }: ActionPaletteProps)
     }
   };
 
+  // ────────────────────────────────────────────────────────────────
+  // Render
+  // ────────────────────────────────────────────────────────────────
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -71,7 +92,7 @@ export function ActionPalette({ isOpen, onClose, position }: ActionPaletteProps)
         {/* Search */}
         <div className="p-4 border-b border-gray-100">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search steps..."
@@ -114,10 +135,9 @@ export function ActionPalette({ isOpen, onClose, position }: ActionPaletteProps)
                     </div>
                     {node.description && (
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        {node.description.length > 80 
-                          ? `${node.description.substring(0, 80)}...`
-                          : node.description
-                        }
+                        {node.description.length > 80
+                          ? `${node.description.slice(0, 80)}...`
+                          : node.description}
                       </p>
                     )}
                   </div>

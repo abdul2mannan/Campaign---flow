@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -13,12 +13,11 @@ import {
   type NodeChange,
   type EdgeChange,
 } from "@xyflow/react";
-
+import { Plus, Copy } from "lucide-react";
 import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
 import { ActionPalette } from "@/cb/palette/action-palette";
 import { ConfigPanel } from "@/cb/panels/index";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
-import { Plus, Copy } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 
 interface FlowCanvasProps {
@@ -26,33 +25,54 @@ interface FlowCanvasProps {
   edges: Edge[];
 }
 
+const nodeTypes = {
+  profile_visit: ProfileVisitNode,
+};
+
 export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
   const setNodes = useFlowStore((s) => s.setNodes);
   const setEdges = useFlowStore((s) => s.setEdges);
+  const currentNodes = useFlowStore((s) => s.nodes);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes(changes),
-    [setNodes]
-  );
-
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges(changes),
-    [setEdges]
-  );
   const [showActionPalette, setShowActionPalette] = useState(false);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
-  const nodeTypes = {
-    profile_visit: ProfileVisitNode,
-  };
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes(changes);
+  }, [setNodes]);
 
-  const handleNodeClick = (event: React.MouseEvent, node: Node) => {
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges(changes);
+  }, [setEdges]);
+
+  const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setShowConfigPanel(true);
   };
 
-  // Empty state component
+  const onSelectionChange = useCallback(({ nodes: selected }: { nodes: Node[] }) => {
+    if (selected.length === 1) {
+      setSelectedNode(selected[0]);
+      setShowConfigPanel(true);
+    } else if (selected.length === 0) {
+      setSelectedNode(null);
+      setShowConfigPanel(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedNode && !currentNodes.some((n) => n.id === selectedNode.id)) {
+      setSelectedNode(null);
+      setShowConfigPanel(false);
+    }
+  }, [currentNodes, selectedNode]);
+
+  const handleNodeAddedFromPalette = (node: Node) => {
+    setSelectedNode(node);
+    setShowConfigPanel(true);
+  };
+
   const EmptyState = () => (
     <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50 z-10 pointer-events-none">
       <div className="text-center space-y-6 max-w-md pointer-events-auto">
@@ -78,10 +98,12 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
             <Plus className="w-5 h-5" />
             Add First Step
           </button>
-          
+
           <div className="text-sm text-gray-500">OR</div>
-          
-          <button className="w-full px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center justify-center gap-2">
+
+          <button
+            className="w-full px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center justify-center gap-2"
+          >
             <Copy className="w-5 h-5" />
             Choose a Flow Template
           </button>
@@ -99,6 +121,7 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}
+          onSelectionChange={onSelectionChange}
           nodeTypes={nodeTypes}
           nodesDraggable={nodes.length > 0}
           nodesConnectable={nodes.length > 0}
@@ -115,20 +138,18 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
           />
           <MiniMap />
           <Controls />
-          
-          {/* Show empty state when no nodes */}
+
           {nodes.length === 0 && <EmptyState />}
         </ReactFlow>
       </ReactFlowProvider>
 
-      {/* Action Palette */}
       <ActionPalette
         isOpen={showActionPalette}
         onClose={() => setShowActionPalette(false)}
         position={{ x: 400, y: 100 }}
+        onNodeAdded={handleNodeAddedFromPalette}
       />
 
-      {/* Config Panel */}
       <ConfigPanel
         node={selectedNode}
         isOpen={showConfigPanel}

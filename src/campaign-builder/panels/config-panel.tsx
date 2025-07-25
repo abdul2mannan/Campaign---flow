@@ -1,8 +1,8 @@
 // src/campaign-builder/components/panels/config-panel.tsx
 "use client";
 
-import { useState } from "react";
-import { X, Settings, Clock, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Settings, Zap, Clock } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { Node } from "@xyflow/react";
 import type { ConfigField } from "@/campaign-builder/registry/nodeRegistry";
@@ -17,16 +17,44 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
   const updateNode = useFlowStore((s) => s.updateNode);
   const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
-  if (!isOpen || !node) return null;
+  // keep a live ref to the up‑to‑date selected node (fresh copy from the store)
+  const currentNode = useFlowStore((s) =>
+    node ? s.nodes.find((n) => n.id === node.id) ?? node : null
+  );
 
-  const { meta, config = {}, delayMode = "instant" } = node.data as any;
-  const configSchema = meta?.configSchema || [];
+  // ─────────────────────────────────────────────────────────────
+  // Sync local config when node changes
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentNode) return;
+    const d: any = currentNode.data;
+    setLocalConfig({ ...d.config });
+  }, [currentNode]);
+
+  if (!isOpen || !currentNode) return null;
+
+  const { meta, config = {}, delayMode = "instant" } = currentNode.data as any;
+
+  // Remove delay‑related fields so they never render here
+  const configSchema: ConfigField[] = (meta?.configSchema || []).filter(
+    (f: ConfigField) => !["delay", "delayMinutes", "waitTime"].includes(f.key)
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // Handlers
+  // ─────────────────────────────────────────────────────────────
+  const setDelayMode = (mode: "instant" | "fixed") => {
+    updateNode(currentNode.id, (n) => {
+      if (typeof n.data === "object" && n.data !== null) {
+        (n.data as any).delayMode = mode;
+      }
+    });
+  };
 
   const handleConfigChange = (key: string, value: any) => {
     const newConfig = { ...localConfig, [key]: value };
     setLocalConfig(newConfig);
-    
-    updateNode(node.id, (n) => {
+    updateNode(currentNode.id, (n) => {
       if (typeof n.data === "object" && n.data !== null) {
         const d = n.data as any;
         if (!d.config) d.config = {};
@@ -35,24 +63,8 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
     });
   };
 
-  const handleDelayModeChange = (mode: "instant" | "fixed") => {
-    updateNode(node.id, (n) => {
-      if (typeof n.data === "object" && n.data !== null) {
-        const d = n.data as any;
-        d.delayMode = mode;
-        if (mode === "instant") {
-          if (d.config) d.config.delayMinutes = 0;
-        } else if (mode === "fixed" && (!d.config?.delayMinutes || d.config.delayMinutes === 0)) {
-          if (!d.config) d.config = {};
-          d.config.delayMinutes = 60; // default 1 hour
-        }
-      }
-    });
-  };
-
   const renderConfigField = (field: ConfigField) => {
     const currentValue = config[field.key] ?? field.default ?? "";
-
     switch (field.type) {
       case "string":
         return (
@@ -64,19 +76,18 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
             placeholder={field.label}
           />
         );
-
       case "number":
         return (
           <input
             type="number"
             value={currentValue}
-            onChange={(e) => handleConfigChange(field.key, parseInt(e.target.value) || 0)}
+            onChange={(e) =>
+              handleConfigChange(field.key, parseInt(e.target.value) || 0)
+            }
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder={field.label}
             min={0}
           />
         );
-
       case "boolean":
         return (
           <label className="flex items-center gap-2 cursor-pointer">
@@ -89,7 +100,6 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
             <span className="text-sm text-gray-700">{field.label}</span>
           </label>
         );
-
       case "select":
         return (
           <select
@@ -104,16 +114,14 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
             ))}
           </select>
         );
-
       default:
-        return (
-          <div className="text-sm text-gray-500">
-            Unsupported field type: {field.type}
-          </div>
-        );
+        return <div className="text-sm text-gray-500">Unsupported type</div>;
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // JSX
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-y-0 right-0 w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col">
       {/* Header */}
@@ -122,10 +130,7 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
           <Settings className="w-5 h-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">Configure Step</h2>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -135,71 +140,48 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
         {/* Step Info */}
         <div>
           <h3 className="font-medium text-gray-900 mb-1">{meta?.title}</h3>
-          {meta?.description && (
-            <p className="text-sm text-gray-600">{meta.description}</p>
-          )}
+          {meta?.description && <p className="text-sm text-gray-600">{meta.description}</p>}
         </div>
 
-        {/* Delay Configuration */}
+        {/* Timing Toggle */}
         {meta?.delayModes?.length > 0 && (
           <div>
             <h4 className="font-medium text-gray-900 mb-3">Timing</h4>
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleDelayModeChange("instant")}
-                  className={`flex-1 px-3 py-2 text-sm border rounded-lg transition-colors ${
-                    delayMode === "instant"
-                      ? "bg-blue-50 border-blue-300 text-blue-700"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 justify-center">
-                    <Zap className="w-4 h-4" />
-                    <span>Immediate</span>
-                  </div>
-                </button>
-                {meta.delayModes.includes("fixed") && (
-                  <button
-                    onClick={() => handleDelayModeChange("fixed")}
-                    className={`flex-1 px-3 py-2 text-sm border rounded-lg transition-colors ${
-                      delayMode === "fixed"
-                        ? "bg-blue-50 border-blue-300 text-blue-700"
-                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 justify-center">
-                      <Clock className="w-4 h-4" />
-                      <span>Delayed</span>
-                    </div>
-                  </button>
-                )}
-              </div>
-
-              {delayMode === "fixed" && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Wait time (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    value={config.delayMinutes || 60}
-                    onChange={(e) => handleConfigChange("delayMinutes", parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min={1}
-                  />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDelayMode("instant")}
+                className={`flex-1 px-3 py-2 text-sm border rounded-lg transition-colors ${
+                  delayMode === "instant"
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-1 justify-center">
+                  <Zap className="w-4 h-4" /> Immediate
                 </div>
-              )}
+              </button>
+              <button
+                onClick={() => setDelayMode("fixed")}
+                className={`flex-1 px-3 py-2 text-sm border rounded-lg transition-colors ${
+                  delayMode === "fixed"
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-1 justify-center">
+                  <Clock className="w-4 h-4" /> Delayed
+                </div>
+              </button>
             </div>
           </div>
         )}
 
-        {/* Configuration Fields */}
+        {/* Custom Config */}
         {configSchema.length > 0 && (
           <div>
             <h4 className="font-medium text-gray-900 mb-3">Configuration</h4>
             <div className="space-y-4">
-              {configSchema.map((field:ConfigField) => (
+              {configSchema.map((field) => (
                 <div key={field.key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     {field.label}
@@ -215,10 +197,7 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
 
       {/* Footer */}
       <div className="border-t border-gray-200 p-4">
-        <button
-          onClick={onClose}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
+        <button onClick={onClose} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           Done
         </button>
       </div>
