@@ -37,6 +37,7 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
   const [showActionPalette, setShowActionPalette] = useState(false);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [ignoreEmptySelections, setIgnoreEmptySelections] = useState(false);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes(changes);
@@ -52,15 +53,22 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
   };
 
   const onSelectionChange = useCallback(({ nodes: selected }: { nodes: Node[] }) => {
+    // Don't clear selection if we're ignoring empty selections (programmatically selected node)
+    if (ignoreEmptySelections && selected.length === 0) {
+      return;
+    }
+    
     if (selected.length === 1) {
       const latestNode = currentNodes.find(n => n.id === selected[0].id) || selected[0];
+      setIgnoreEmptySelections(false); // Reset when user selects a different node
       setSelectedNode(latestNode);
       setShowConfigPanel(true);
     } else if (selected.length === 0) {
+      setIgnoreEmptySelections(false);
       setSelectedNode(null);
       setShowConfigPanel(false);
     }
-  }, [currentNodes]);
+  }, [currentNodes, ignoreEmptySelections]);
 
   useEffect(() => {
     if (selectedNode && !currentNodes.some((n) => n.id === selectedNode.id)) {
@@ -70,6 +78,8 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
   }, [currentNodes, selectedNode]);
 
   const handleNodeAddedFromPalette = (node: Node) => {
+    // Start ignoring empty selections until user closes panel or selects different node
+    setIgnoreEmptySelections(true);
     setSelectedNode(node);
     setShowConfigPanel(true);
   };
@@ -155,6 +165,7 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
         node={selectedNode}
         isOpen={showConfigPanel}
         onClose={() => {
+          setIgnoreEmptySelections(false); // Reset ignore flag when closing manually
           setShowConfigPanel(false);
           setSelectedNode(null);
         }}

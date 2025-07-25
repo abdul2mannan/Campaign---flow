@@ -45,7 +45,16 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
   const setDelayMode = (mode: "instant" | "fixed") => {
     updateNode(currentNode.id, (n) => {
       if (typeof n.data === "object" && n.data !== null) {
-        (n.data as any).delayMode = mode;
+        const d = n.data as any;
+        d.delayMode = mode;
+        
+        // When switching to fixed mode, set a default delay if none exists
+        if (mode === "fixed") {
+          if (!d.config) d.config = {};
+          if (!d.config.delayMinutes || d.config.delayMinutes === 0) {
+            d.config.delayMinutes = 60; // Default to 5 minutes
+          }
+        }
       }
     });
   };
