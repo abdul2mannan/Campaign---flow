@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Zap, Clock, Eye, MoreVertical, Trash2 } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
@@ -8,7 +8,9 @@ export default function ProfileVisitNode({
   data,
   id,
 }: NodeProps<ProfileVisitNodeType>) {
-  const { meta, config = {}, delayMode } = data;
+  const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
+  const nodeData = (currentNode?.data || data) as any;
+  const { meta, config = {}, delayMode } = nodeData;
   const delay = config.delayMinutes ?? 0;
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingDelay, setEditingDelay] = useState(false);
@@ -16,12 +18,11 @@ export default function ProfileVisitNode({
   const updateNode = useFlowStore((s) => s.updateNode);
   const deleteNode = useFlowStore((s) => s.removeNode); // if available
 
+  useEffect(() => {
+    setTempDelay(delay.toString());
+  }, [delay]);
+
   const isFixed = delayMode === "fixed" && delay > 0;
-  const topLabel = isFixed
-    ? delay >= 1440
-      ? `Wait for ${Math.floor(delay / 1440)} day${delay >= 2880 ? "s" : ""}`
-      : `Wait for ${delay} min`
-    : "Send immediately";
   const topIcon = isFixed ? (
     <Clock className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
   ) : (

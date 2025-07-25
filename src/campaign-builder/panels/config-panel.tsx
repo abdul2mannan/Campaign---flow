@@ -17,7 +17,6 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
   const updateNode = useFlowStore((s) => s.updateNode);
   const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
-  // keep a live ref to the up‑to‑date selected node (fresh copy from the store)
   const currentNode = useFlowStore((s) =>
     node ? s.nodes.find((n) => n.id === node.id) ?? node : null
   );
@@ -29,7 +28,7 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
     if (!currentNode) return;
     const d: any = currentNode.data;
     setLocalConfig({ ...d.config });
-  }, [currentNode]);
+  }, [currentNode?.data?.config, currentNode?.data?.delayMode]);
 
   if (!isOpen || !currentNode) return null;
 

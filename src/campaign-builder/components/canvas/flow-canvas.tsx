@@ -53,13 +53,14 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
 
   const onSelectionChange = useCallback(({ nodes: selected }: { nodes: Node[] }) => {
     if (selected.length === 1) {
-      setSelectedNode(selected[0]);
+      const latestNode = currentNodes.find(n => n.id === selected[0].id) || selected[0];
+      setSelectedNode(latestNode);
       setShowConfigPanel(true);
     } else if (selected.length === 0) {
       setSelectedNode(null);
       setShowConfigPanel(false);
     }
-  }, []);
+  }, [currentNodes]);
 
   useEffect(() => {
     if (selectedNode && !currentNodes.some((n) => n.id === selectedNode.id)) {
