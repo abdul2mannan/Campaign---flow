@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   ReactFlow,
@@ -6,16 +6,35 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';                           // correct v12 style import
+  MiniMap,
+} from "@xyflow/react";
+
+import  ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
+import "@xyflow/react/dist/style.css";
 
 export function FlowCanvas({ nodes, edges }: { nodes: any[]; edges: any[] }) {
+  const nodeTypes = {
+    profile_visit: ProfileVisitNode,
+  
+  };
+
   return (
     <div className="h-full w-full">
-      <ReactFlowProvider fitView>                                       {/* context for hooks */}
-        <ReactFlow  nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}  >
-          <Background bgColor='#f2f2f2' color="#909090" variant={BackgroundVariant.Dots} gap={20} size={1} />       {/* subtle grid */}
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          fitView
+          nodeTypes={nodeTypes  }
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background
+            bgColor="#ffffff"
+            color="#909090"
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+          />
           <MiniMap />
           <Controls />
         </ReactFlow>
@@ -23,5 +42,3 @@ export function FlowCanvas({ nodes, edges }: { nodes: any[]; edges: any[] }) {
     </div>
   );
 }
-
-
