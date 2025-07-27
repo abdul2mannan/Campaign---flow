@@ -67,5 +67,21 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     delayModes: ["instant", "fixed"],
     styleKey: "action-like-",
     component: LikePostNode as NodeComponent,
+    configSchema: [
+      {
+        key: "numberOfPosts",
+        label: "Number of Posts",
+        type: "number",
+        required: true,
+        default: 1,
+      },
+      {
+        key: "recentPostWithinDays",
+        label: "Recent Post Within (days)",
+        type: "number", 
+        required: true,
+        default: 30,
+      },
+    ],
   },
 };
