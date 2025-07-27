@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { X, Search, Eye, Zap } from "lucide-react";
+import { X, Search } from "lucide-react";
 import type { Node } from "@xyflow/react";
 import { nodeRegistry } from "@/campaign-builder/registry/nodeRegistry";
 import { createNode } from "@/campaign-builder/registry/factory";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
+import { getNodeIcon } from "@/campaign-builder/utils/node-icons";
 
 interface ActionPaletteProps {
   isOpen: boolean;
@@ -48,14 +49,7 @@ export function ActionPalette({
     onClose();
   };
 
-  const getNodeIcon = (nodeType: string) => {
-    switch (nodeType) {
-      case "profile_visit":
-        return <Eye className="w-5 h-5 text-indigo-600" />;
-      default:
-        return <Zap className="w-5 h-5 text-blue-600" />;
-    }
-  };
+  // No longer needed - using centralized icon utility
 
   const getCategoryColor = (category: string) => {
     switch (category) {

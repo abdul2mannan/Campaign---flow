@@ -1,31 +1,28 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Zap, Clock, MoreVertical, Trash2 } from "lucide-react";
-import React from "react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
-import type { ProfileVisitNode as ProfileVisitNodeType } from "@/campaign-builder/types/flow-nodes";
+import type { LikePostNode as LikePostNodeType } from "@/campaign-builder/types/flow-nodes";
 import { getNodeIconForCanvas } from "@/campaign-builder/utils/node-icons";
 
-export default function ProfileVisitNode({
+export default function LikePostNode({
   data,
   id,
   selected,
-}: NodeProps<ProfileVisitNodeType>) {
+}: NodeProps<LikePostNodeType>) {
+  const updateNode = useFlowStore((s) => s.updateNode);
+  const deleteNode = useFlowStore((s) => s.removeNode);
   const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
   const nodeData = (currentNode?.data || data) as any;
   const { meta, config = {}, delayMode = "instant" } = nodeData;
-  const delay = config.delayMinutes ?? 0;
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingDelay, setEditingDelay] = useState(false);
-  const [tempDelay, setTempDelay] = useState(delay.toString());
-  const updateNode = useFlowStore((s) => s.updateNode);
-  const deleteNode = useFlowStore((s) => s.removeNode); // if available
+  const [tempDelay, setTempDelay] = useState(
+    (config.delayMinutes || 1).toString()
+  );
 
-  useEffect(() => {
-    setTempDelay(delay.toString());
-  }, [delay, delayMode]);
-
-
+  const delay = config.delayMinutes || 1;
   const isFixed = useMemo(() => delayMode === "fixed" && delay > 0, [delayMode, delay]);
   const topIcon = isFixed ? (
     <Clock className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
@@ -34,7 +31,7 @@ export default function ProfileVisitNode({
   );
 
   // Use centralized icon utility
-  const nodeIcon = getNodeIconForCanvas("profile_visit");
+  const nodeIcon = getNodeIconForCanvas("like_post");
 
   const handleAddDelay = () => {
     updateNode(id, (node) => {
@@ -49,8 +46,19 @@ export default function ProfileVisitNode({
     setMenuOpen(false);
   };
 
+  const handleDelayToggle = () => {
+    updateNode(id, (node) => {
+      if (typeof node.data === "object" && node.data !== null) {
+        const d = node.data as { config: any; delayMode: string };
+        d.delayMode = "instant";
+        d.config.delayMinutes = 0;
+      }
+    });
+    setMenuOpen(false);
+  };
+
   const handleDelete = () => {
-    deleteNode?.(id); // fallback to alert if not defined
+    deleteNode?.(id);
     setMenuOpen(false);
   };
 
@@ -77,28 +85,36 @@ export default function ProfileVisitNode({
                     const value = parseInt(tempDelay, 10);
                     if (!isNaN(value) && value > 0) {
                       updateNode(id, (node) => {
-                        const d = node.data as {
-                          config: any;
-                          delayMode: string;
-                        };
-                        d.config.delayMinutes = value;
+                        if (typeof node.data === "object" && node.data !== null) {
+                          const d = node.data as { config: any; delayMode: string };
+                          if (!d.config) d.config = {};
+                          d.config.delayMinutes = value;
+                        }
                       });
                     }
                     setEditingDelay(false);
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter")
-                      (e.target as HTMLInputElement).blur();
+                    if (e.key === "Enter") {
+                      const value = parseInt(tempDelay, 10);
+                      if (!isNaN(value) && value > 0) {
+                        updateNode(id, (node) => {
+                          if (typeof node.data === "object" && node.data !== null) {
+                            const d = node.data as { config: any; delayMode: string };
+                            if (!d.config) d.config = {};
+                            d.config.delayMinutes = value;
+                          }
+                        });
+                      }
+                      setEditingDelay(false);
+                    }
                   }}
                   className="bg-transparent border border-indigo-300 rounded px-1 py-0.5 text-[11px] w-14 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   autoFocus
                 />
               ) : (
                 <button
-                  onClick={() => {
-                    setTempDelay(delay.toString());
-                    setEditingDelay(true);
-                  }}
+                  onClick={() => setEditingDelay(true)}
                   className="hover:underline underline-offset-2 flex items-center gap-1"
                 >
                   <span>Wait for {delay} min</span>
@@ -137,17 +153,7 @@ export default function ProfileVisitNode({
 
                 {delayMode === "fixed" && (
                   <button
-                    onClick={() => {
-                      updateNode(id, (node) => {
-                        const d = node.data as {
-                          config: any;
-                          delayMode: string;
-                        };
-                        d.delayMode = "instant";
-                        d.config.delayMinutes = 0;
-                      });
-                      setMenuOpen(false);
-                    }}
+                    onClick={handleDelayToggle}
                     className="flex items-center gap-3 w-full px-4 py-3 text-left text-gray-900 hover:bg-gray-50 transition"
                   >
                     <Zap className="w-4 h-4 text-blue-500" strokeWidth={2} />
@@ -173,7 +179,7 @@ export default function ProfileVisitNode({
 
         {/* Main content */}
         <div className="flex items-start gap-3 px-4 pb-3">
-          <div className="bg-indigo-100 rounded-full p-2">
+          <div className="bg-red-100 rounded-full p-2">
             {nodeIcon}
           </div>
           <div className="flex flex-col">

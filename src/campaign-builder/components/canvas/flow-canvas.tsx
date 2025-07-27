@@ -15,6 +15,7 @@ import {
 } from "@xyflow/react";
 import { Plus, Copy } from "lucide-react";
 import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
+import LikePostNode from "@/cb/nodes/LikePostNode";
 import { ActionPalette } from "@/cb/palette/action-palette";
 import { ConfigPanel } from "@/cb/panels/index";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
@@ -27,6 +28,7 @@ interface FlowCanvasProps {
 
 const nodeTypes = {
   profile_visit: ProfileVisitNode,
+  like_post: LikePostNode,
 };
 
 export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {

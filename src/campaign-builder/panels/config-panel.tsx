@@ -20,9 +20,6 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
     node ? s.nodes.find((n) => n.id === node.id) ?? node : null
   );
 
-  // ─────────────────────────────────────────────────────────────
-  // Sync local config when node changes
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentNode) return;
     const d: any = currentNode.data;
