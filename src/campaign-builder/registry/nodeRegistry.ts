@@ -125,26 +125,5 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     delayModes: ["fixed", "waitUntil"],
     styleKey: "condition-linkedin-",
     component: LinkedInRequestAcceptedNode as NodeComponent,
-    configSchema: [
-      {
-        key: "timeframe",
-        label: "Check within timeframe",
-        type: "number",
-        required: true,
-        default: 7,
-      },
-      {
-        key: "timeUnit",
-        label: "Time Unit",
-        type: "select",
-        required: true,
-        default: "days",
-        options: [
-          { value: "hours", label: "Hours" },
-          { value: "days", label: "Days" },
-          { value: "weeks", label: "Weeks" },
-        ],
-      },
-    ],
   },
 }

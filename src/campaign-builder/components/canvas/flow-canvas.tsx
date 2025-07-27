@@ -9,6 +9,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  useReactFlow,
   type Node,
   type Edge,
   type NodeChange,
@@ -36,7 +37,8 @@ const nodeTypes = {
   linkedin_request_accepted: LinkedInRequestAcceptedNode,
 };
 
-export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
+function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
+  const reactFlowInstance = useReactFlow();
   const setNodes = useFlowStore((s) => s.setNodes);
   const setEdges = useFlowStore((s) => s.setEdges);
   const currentNodes = useFlowStore((s) => s.nodes);
@@ -45,6 +47,8 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [ignoreEmptySelections, setIgnoreEmptySelections] = useState(false);
+
+  const [pendingNodeSelection, setPendingNodeSelection] = useState<string | null>(null);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -94,11 +98,38 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
     }
   }, [currentNodes, selectedNode]);
 
+  // Effect to handle pending node selection after node is added to store
+  useEffect(() => {
+    if (pendingNodeSelection && currentNodes.some(n => n.id === pendingNodeSelection)) {
+      // Node has been added to the store, now select it in ReactFlow
+      reactFlowInstance.setNodes((nodes) =>
+        nodes.map((n) => ({
+          ...n,
+          selected: n.id === pendingNodeSelection
+        }))
+      );
+      setPendingNodeSelection(null);
+    }
+  }, [currentNodes, pendingNodeSelection, reactFlowInstance]);
+
   const handleNodeAddedFromPalette = (node: Node) => {
     // Start ignoring empty selections until user closes panel or selects different node
     setIgnoreEmptySelections(true);
     setSelectedNode(node);
     setShowConfigPanel(true);
+    
+    // Set pending selection - will be handled by useEffect once node is in store
+    setPendingNodeSelection(node.id);
+  };
+
+  const handleSaveConfiguration = () => {
+    // Unselect all nodes programmatically
+    reactFlowInstance.setNodes((nodes) =>
+      nodes.map((node) => ({ ...node, selected: false }))
+    );
+    setSelectedNode(null);
+    setShowConfigPanel(false);
+    setIgnoreEmptySelections(false);
   };
 
   const EmptyState = () => (
@@ -141,34 +172,32 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
 
   return (
     <div className="h-full w-full relative">
-      <ReactFlowProvider>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeClick={handleNodeClick}
-          onSelectionChange={onSelectionChange}
-          nodeTypes={nodeTypes}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={nodes.length > 0}
-          fitView
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background
-            bgColor="#ffffff"
-            color="#909090"
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-          />
-          <MiniMap />
-          <Controls />
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        onSelectionChange={onSelectionChange}
+        nodeTypes={nodeTypes}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={nodes.length > 0}
+        fitView
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background
+          bgColor="#ffffff"
+          color="#909090"
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+        />
+        <MiniMap />
+        <Controls />
 
-          {nodes.length === 0 && <EmptyState />}
-        </ReactFlow>
-      </ReactFlowProvider>
+        {nodes.length === 0 && <EmptyState />}
+      </ReactFlow>
 
       <ActionPalette
         isOpen={showActionPalette}
@@ -180,6 +209,7 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
       <ConfigPanel
         node={selectedNode}
         isOpen={showConfigPanel}
+        onSave={handleSaveConfiguration}
         onClose={() => {
           setIgnoreEmptySelections(false); // Reset ignore flag when closing manually
           setShowConfigPanel(false);
@@ -187,5 +217,13 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
         }}
       />
     </div>
+  );
+}
+
+export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <FlowCanvasInner nodes={nodes} edges={edges} />
+    </ReactFlowProvider>
   );
 }

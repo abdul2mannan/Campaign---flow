@@ -11,9 +11,10 @@ interface ConfigPanelProps {
   node: Node | null;
   isOpen: boolean;
   onClose: () => void;
+  onSave?: () => void;
 }
 
-export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
+export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps) {
   const updateNode = useFlowStore((s) => s.updateNode);
   const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
@@ -302,7 +303,10 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
       {/* Footer */}
       <div className="border-t border-gray-200 p-6 bg-gray-50">
         <button
-          onClick={onClose}
+          onClick={() => {
+            onSave?.();
+            onClose();
+          }}
           className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
         >
           Save Configuration
