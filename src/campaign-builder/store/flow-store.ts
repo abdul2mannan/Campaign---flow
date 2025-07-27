@@ -36,14 +36,25 @@ export const useFlowStore = create<FlowState>()(
       set((draft) => {
         const last = draft.nodes[draft.nodes.length - 1];
 
-        // auto‑wire edge from last node → new node
+        // Set position for the new node
         if (last) {
+          // Position new node below the last one
+          node.position = {
+            x: last.position.x,
+            y: last.position.y + 150, // 150px spacing between nodes
+          };
+          
+          // auto‑wire edge from last node → new node
           draft.edges.push({
             id: `${last.id}-${node.id}`,
             source: last.id,
             target: node.id,
           });
+        } else {
+          // First node - center it
+          node.position = { x: 400, y: 100 };
         }
+        
         draft.nodes.push(node as any);
       }),
 
@@ -65,7 +76,11 @@ export const useFlowStore = create<FlowState>()(
 
     setNodes: (changes) =>
       set((draft) => {
-        draft.nodes = applyNodeChanges(changes, draft.nodes);
+        // Filter out position changes to prevent node movement
+        const filteredChanges = changes.filter(change => 
+          change.type !== 'position'
+        );
+        draft.nodes = applyNodeChanges(filteredChanges, draft.nodes);
       }),
 
     setEdges: (changes) =>

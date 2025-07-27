@@ -145,8 +145,8 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
           onNodeClick={handleNodeClick}
           onSelectionChange={onSelectionChange}
           nodeTypes={nodeTypes}
-          nodesDraggable={nodes.length > 0}
-          nodesConnectable={nodes.length > 0}
+          nodesDraggable={false}
+          nodesConnectable={false}
           elementsSelectable={nodes.length > 0}
           fitView
           proOptions={{ hideAttribution: true }}

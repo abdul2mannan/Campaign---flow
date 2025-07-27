@@ -3,28 +3,9 @@ import { nodeRegistry } from "./nodeRegistry";
 import { useFlowStore } from "../store/flow-store";
 
 function getNextId(type: string): string {
-  const currentNodes = useFlowStore.getState().nodes;
-  
-  const existingIds = currentNodes
-    .filter(node => node.type === type)
-    .map(node => node.id)
-    .map(id => {
-      const match = id.match(new RegExp(`^${type}_(\\d+)$`));
-      return match ? parseInt(match[1], 10) : 0;
-    })
-    .sort((a, b) => a - b);
-
-  // Find the first gap in the sequence or use the next number
-  let nextId = 1;
-  for (const id of existingIds) {
-    if (id === nextId) {
-      nextId++;
-    } else {
-      break;
-    }
-  }
-
-  const finalId = `${type}_${nextId}`;
+  // Use timestamp for unique ID generation
+  const timestamp = Date.now();
+  const finalId = `${type}-${timestamp}`;
   return finalId;
 }
 
