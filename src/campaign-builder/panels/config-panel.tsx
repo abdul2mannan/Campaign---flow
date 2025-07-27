@@ -39,7 +39,7 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
   // ─────────────────────────────────────────────────────────────
   // Handlers
   // ─────────────────────────────────────────────────────────────
-  const setDelayMode = (mode: "instant" | "fixed") => {
+  const setDelayMode = (mode: "instant" | "fixed" | "waitUntil") => {
     updateNode(currentNode.id, (n) => {
       if (typeof n.data === "object" && n.data !== null) {
         const d = n.data as any;
@@ -178,6 +178,7 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
         </div>
 
         {/* Timing Section */}
+      {/* Timing Section */}
         {meta?.delayModes?.length > 0 && (
           <div className="p-6 border-b border-gray-100">
             <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -185,40 +186,83 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
               Timing
             </h4>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setDelayMode("instant")}
-                className={`p-4 border-2 rounded-xl transition-all duration-200 ${
-                  delayMode === "instant"
-                    ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <div className={`p-2 rounded-lg ${
-                    delayMode === "instant" ? "bg-blue-100" : "bg-gray-100"
-                  }`}>
-                    <Zap className="w-5 h-5" />
-                  </div>
-                  <span className="text-sm font-medium">Immediate</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setDelayMode("fixed")}
-                className={`p-4 border-2 rounded-xl transition-all duration-200 ${
-                  delayMode === "fixed"
-                    ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <div className={`p-2 rounded-lg ${
-                    delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
-                  }`}>
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <span className="text-sm font-medium">Delayed</span>
-                </div>
-              </button>
+              {/* For conditional nodes, show Within/Wait until options */}
+              {meta?.category === "condition" ? (
+                <>
+                  <button
+                    onClick={() => setDelayMode("fixed")}
+                    className={`p-4 border-2 rounded-xl transition-all duration-200 ${
+                      delayMode === "fixed"
+                        ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`p-2 rounded-lg ${
+                        delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
+                      }`}>
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm font-medium">Within</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setDelayMode("waitUntil")}
+                    className={`p-4 border-2 rounded-xl transition-all duration-200 ${
+                      delayMode === "waitUntil"
+                        ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`p-2 rounded-lg ${
+                        delayMode === "waitUntil" ? "bg-blue-100" : "bg-gray-100"
+                      }`}>
+                        <Eye className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm font-medium">Wait until</span>
+                    </div>
+                  </button>
+                </>
+              ) : (
+                /* For action nodes, show Immediate/Delayed options */
+                <>
+                  <button
+                    onClick={() => setDelayMode("instant")}
+                    className={`p-4 border-2 rounded-xl transition-all duration-200 ${
+                      delayMode === "instant"
+                        ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`p-2 rounded-lg ${
+                        delayMode === "instant" ? "bg-blue-100" : "bg-gray-100"
+                      }`}>
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm font-medium">Immediate</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setDelayMode("fixed")}
+                    className={`p-4 border-2 rounded-xl transition-all duration-200 ${
+                      delayMode === "fixed"
+                        ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`p-2 rounded-lg ${
+                        delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
+                      }`}>
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm font-medium">Delayed</span>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

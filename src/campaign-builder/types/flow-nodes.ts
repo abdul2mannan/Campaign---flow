@@ -42,8 +42,9 @@ export type LinkedInRequestAcceptedData = {
   config: { 
     timeframe?: number;
     timeUnit?: "hours" | "days" | "weeks";
+    delayMinutes?: number; // For fixed mode delays
   };
-  delayMode: "waitUntil";
+  delayMode: "fixed" | "waitUntil";
   [key: string]: unknown;          // satisfies Record<string, unknown>
 };
 

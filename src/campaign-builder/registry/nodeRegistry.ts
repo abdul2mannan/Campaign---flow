@@ -114,15 +114,15 @@ export const nodeRegistry: Record<string, NodeMeta> = {
       },
     ],
   },
-  linkedin_request_accepted: {
+ linkedin_request_accepted: {
     type: "linkedin_request_accepted",
     title: "Is LinkedIn Request Accepted?",
     description: "Check if connection request was accepted",
     category: "condition",
     inputs: 1,
-    outputs: 2, // Yes/No branches
+    outputs: 2, // Dynamic: 2 for fixed (branches), 1 for waitUntil
     branchable: true,
-    delayModes: ["waitUntil"],
+    delayModes: ["fixed", "waitUntil"],
     styleKey: "condition-linkedin-",
     component: LinkedInRequestAcceptedNode as NodeComponent,
     configSchema: [
@@ -147,4 +147,4 @@ export const nodeRegistry: Record<string, NodeMeta> = {
       },
     ],
   },
-};
+}

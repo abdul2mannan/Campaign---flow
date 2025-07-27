@@ -15,6 +15,13 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
 
   const newId = getNextId(type);
   
+  // Set default delay mode based on node category
+  let defaultDelayMode = meta.delayModes[0];
+  if (meta.category === "condition") {
+    // For conditional nodes, default to "waitUntil" mode
+    defaultDelayMode = "waitUntil";
+  }
+  
   const node = {
     id: newId,
     type,
@@ -22,7 +29,7 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
     data: {
       meta,
       config: {},
-      delayMode: meta.delayModes[0],
+      delayMode: defaultDelayMode,
       ...(overrides.data ?? {}),
     },
     ...overrides,
