@@ -1,6 +1,9 @@
+// src/campaign-builder/registry/nodeRegistry.ts
 import { NodeProps, Node } from "@xyflow/react";
 import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
 import LikePostNode from "@/cb/nodes/LikePostNode";
+import SendInviteNode from "@/cb/nodes/SendInviteNode";
+import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
 
 /** Generic node component type */
 export type NodeComponent = React.FC<NodeProps<Node>>;
@@ -54,8 +57,8 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     inputs: 1,
     outputs: 1,
     delayModes: ["instant", "fixed"],
-    styleKey: "actiovisitn-",
-    component: ProfileVisitNode as NodeComponent, // satisfies compiler
+    styleKey: "action-visit-",
+    component: ProfileVisitNode as NodeComponent,
   },
   like_post: {
     type: "like_post",
@@ -81,6 +84,66 @@ export const nodeRegistry: Record<string, NodeMeta> = {
         type: "number", 
         required: true,
         default: 30,
+      },
+    ],
+  },
+  send_invite: {
+    type: "send_invite",
+    title: "Send Connection Request",
+    description: "Send a connection request to prospect",
+    category: "action",
+    inputs: 1,
+    outputs: 1,
+    delayModes: ["instant", "fixed"],
+    styleKey: "action-invite-",
+    component: SendInviteNode as NodeComponent,
+    configSchema: [
+      {
+        key: "message",
+        label: "Connection Message",
+        type: "string",
+        required: false,
+        default: "",
+      },
+      {
+        key: "usePersonalMessage",
+        label: "Include Personal Message",
+        type: "boolean",
+        required: false,
+        default: false,
+      },
+    ],
+  },
+  linkedin_request_accepted: {
+    type: "linkedin_request_accepted",
+    title: "Is LinkedIn Request Accepted?",
+    description: "Check if connection request was accepted",
+    category: "condition",
+    inputs: 1,
+    outputs: 2, // Yes/No branches
+    branchable: true,
+    delayModes: ["waitUntil"],
+    styleKey: "condition-linkedin-",
+    component: LinkedInRequestAcceptedNode as NodeComponent,
+    configSchema: [
+      {
+        key: "timeframe",
+        label: "Check within timeframe",
+        type: "number",
+        required: true,
+        default: 7,
+      },
+      {
+        key: "timeUnit",
+        label: "Time Unit",
+        type: "select",
+        required: true,
+        default: "days",
+        options: [
+          { value: "hours", label: "Hours" },
+          { value: "days", label: "Days" },
+          { value: "weeks", label: "Weeks" },
+        ],
       },
     ],
   },

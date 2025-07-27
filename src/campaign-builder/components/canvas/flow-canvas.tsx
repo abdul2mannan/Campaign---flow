@@ -1,3 +1,4 @@
+// src/campaign-builder/components/canvas/flow-canvas.tsx
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
@@ -16,6 +17,8 @@ import {
 import { Plus, Copy } from "lucide-react";
 import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
 import LikePostNode from "@/cb/nodes/LikePostNode";
+import SendInviteNode from "@/cb/nodes/SendInviteNode";
+import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
 import { ActionPalette } from "@/cb/palette/action-palette";
 import { ConfigPanel } from "@/cb/panels/index";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
@@ -29,6 +32,8 @@ interface FlowCanvasProps {
 const nodeTypes = {
   profile_visit: ProfileVisitNode,
   like_post: LikePostNode,
+  send_invite: SendInviteNode,
+  linkedin_request_accepted: LinkedInRequestAcceptedNode,
 };
 
 export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
