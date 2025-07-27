@@ -23,7 +23,6 @@ export interface PrereqRules {
   integrationFlags?: string[];
 }
 
-
 export interface NodeMetaCore {
   type: string;
   title: string;
@@ -37,7 +36,7 @@ export interface NodeMetaCore {
   selectionLimit?: number;
   delayModes: DelayMode[];
   styleKey?: string;
-  configSchema: ConfigField[];
+  configSchema?: ConfigField[];
   fetchConfigOptions?: (nodeId: string) => Promise<any>;
 }
 
@@ -56,9 +55,6 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     outputs: 1,
     delayModes: ["instant", "fixed"],
     styleKey: "actiovisitn-",
-    configSchema: [
-      { key: "delayMinutes", label: "Delay (min)", type: "number", default: 0 },
-    ],
-    component: ProfileVisitNode as NodeComponent,  // satisfies compiler
+    component: ProfileVisitNode as NodeComponent, // satisfies compiler
   },
 };

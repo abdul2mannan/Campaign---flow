@@ -39,36 +39,46 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [ignoreEmptySelections, setIgnoreEmptySelections] = useState(false);
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes(changes);
-  }, [setNodes]);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      setNodes(changes);
+    },
+    [setNodes]
+  );
 
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges(changes);
-  }, [setEdges]);
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      setEdges(changes);
+    },
+    [setEdges]
+  );
 
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setShowConfigPanel(true);
   };
 
-  const onSelectionChange = useCallback(({ nodes: selected }: { nodes: Node[] }) => {
-    // Don't clear selection if we're ignoring empty selections (programmatically selected node)
-    if (ignoreEmptySelections && selected.length === 0) {
-      return;
-    }
-    
-    if (selected.length === 1) {
-      const latestNode = currentNodes.find(n => n.id === selected[0].id) || selected[0];
-      setIgnoreEmptySelections(false); // Reset when user selects a different node
-      setSelectedNode(latestNode);
-      setShowConfigPanel(true);
-    } else if (selected.length === 0) {
-      setIgnoreEmptySelections(false);
-      setSelectedNode(null);
-      setShowConfigPanel(false);
-    }
-  }, [currentNodes, ignoreEmptySelections]);
+  const onSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: Node[] }) => {
+      // Don't clear selection if we're ignoring empty selections (programmatically selected node)
+      if (ignoreEmptySelections && selected.length === 0) {
+        return;
+      }
+
+      if (selected.length === 1) {
+        const latestNode =
+          currentNodes.find((n) => n.id === selected[0].id) || selected[0];
+        setIgnoreEmptySelections(false); // Reset when user selects a different node
+        setSelectedNode(latestNode);
+        setShowConfigPanel(true);
+      } else if (selected.length === 0) {
+        setIgnoreEmptySelections(false);
+        setSelectedNode(null);
+        setShowConfigPanel(false);
+      }
+    },
+    [currentNodes, ignoreEmptySelections]
+  );
 
   useEffect(() => {
     if (selectedNode && !currentNodes.some((n) => n.id === selectedNode.id)) {
@@ -96,7 +106,8 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
               Start Building Your Campaign
             </h3>
             <p className="text-gray-600">
-              Create your first automation step to begin building your campaign flow.
+              Create your first automation step to begin building your campaign
+              flow.
             </p>
           </div>
         </div>
@@ -112,9 +123,7 @@ export function FlowCanvas({ nodes, edges }: FlowCanvasProps) {
 
           <div className="text-sm text-gray-500">OR</div>
 
-          <button
-            className="w-full px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center justify-center gap-2"
-          >
+          <button className="w-full px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center justify-center gap-2">
             <Copy className="w-5 h-5" />
             Choose a Flow Template
           </button>

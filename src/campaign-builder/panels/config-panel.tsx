@@ -1,4 +1,3 @@
-// src/campaign-builder/components/panels/config-panel.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -47,7 +46,7 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
       if (typeof n.data === "object" && n.data !== null) {
         const d = n.data as any;
         d.delayMode = mode;
-        
+
         // When switching to fixed mode, set a default delay if none exists
         if (mode === "fixed") {
           if (!d.config) d.config = {};
@@ -116,7 +115,10 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {field.options?.map((option: any) => (
-              <option key={option.value || option} value={option.value || option}>
+              <option
+                key={option.value || option}
+                value={option.value || option}
+              >
                 {option.label || option}
               </option>
             ))}
@@ -136,9 +138,14 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Configure Step</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Configure Step
+          </h2>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -148,7 +155,9 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
         {/* Step Info */}
         <div>
           <h3 className="font-medium text-gray-900 mb-1">{meta?.title}</h3>
-          {meta?.description && <p className="text-sm text-gray-600">{meta.description}</p>}
+          {meta?.description && (
+            <p className="text-sm text-gray-600">{meta.description}</p>
+          )}
         </div>
 
         {/* Timing Toggle */}
@@ -193,7 +202,9 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
                 <div key={field.key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     {field.label}
-                    {field.required && <span className="text-red-500 ml-1">*</span>}
+                    {field.required && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
                   </label>
                   {renderConfigField(field)}
                 </div>
@@ -205,7 +216,10 @@ export function ConfigPanel({ node, isOpen, onClose }: ConfigPanelProps) {
 
       {/* Footer */}
       <div className="border-t border-gray-200 p-4">
-        <button onClick={onClose} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button
+          onClick={onClose}
+          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           Done
         </button>
       </div>
