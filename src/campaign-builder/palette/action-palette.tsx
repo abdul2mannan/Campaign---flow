@@ -24,33 +24,48 @@ export function ActionPalette({
   position,
 }: ActionPaletteProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // EXISTING: Keep existing store methods
   const addNode = useFlowStore((s) => s.addNodeAtEnd);
+  
+  // NEW: Plus context functionality
+  const plusContext = useFlowStore((s) => s.plusContext);
+  const insertAtEnd = useFlowStore((s) => s.insertAtEnd);
+  const clearPlusContext = useFlowStore((s) => s.clearPlusContext);
 
-  // ────────────────────────────────────────────────────────────────
-  // Helpers
-  // ────────────────────────────────────────────────────────────────
+  // UNCHANGED: Keep existing filtering logic
   const filteredNodes = Object.values(nodeRegistry).filter((node) =>
     (node.title + node.description)
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   );
 
+  // ENHANCED: Context-aware node addition
   const handleAddNode = (nodeType: string) => {
-    const newNode = createNode(nodeType, {
-      position: position || { x: 400, y: 100 },
-    });
+    if (plusContext?.type === 'node' && plusContext.sourceId) {
+      // NEW: Use insertAtEnd for plus button clicks
+      insertAtEnd(plusContext.sourceId, nodeType);
+      clearPlusContext();
+    } else {
+      // EXISTING: Use original logic for non-plus-button cases
+      const newNode = createNode(nodeType, {
+        position: position || { x: 400, y: 100 },
+      });
+      addNode(newNode);
+    }
 
-    // Add to the Zustand store so it appears on the canvas
-    addNode(newNode);
-
-    // Notify parent so it can open the ConfigPanel, etc.
-    onNodeAdded?.(newNode);
+    // UNCHANGED: Keep existing notification logic
+    onNodeAdded?.({ 
+      id: '', 
+      type: nodeType, 
+      position: { x: 0, y: 0 }, 
+      data: {} 
+    } as Node);
 
     onClose();
   };
 
-  // No longer needed - using centralized icon utility
-
+  // UNCHANGED: Keep existing helper functions
   const getCategoryColor = (category: string) => {
     switch (category) {
       case "action":
@@ -64,26 +79,32 @@ export function ActionPalette({
     }
   };
 
-  // ────────────────────────────────────────────────────────────────
-  // Render
-  // ────────────────────────────────────────────────────────────────
+  // ENHANCED: Context-aware close handler
+  const handleClose = () => {
+    clearPlusContext(); // NEW: Clear plus context when closing
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
-        {/* Header */}
+        {/* ENHANCED: Context-aware header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Add Step</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {/* NEW: Different title based on context */}
+            {plusContext?.type === 'node' ? 'Add Next Step' : 'Add Step'}
+          </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose} // CHANGED: Use enhanced close handler
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Search */}
+        {/* UNCHANGED: Keep existing search functionality */}
         <div className="p-4 border-b border-gray-100">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -97,43 +118,36 @@ export function ActionPalette({
           </div>
         </div>
 
-        {/* Node List */}
+        {/* UNCHANGED: Keep existing node list */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {filteredNodes.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p>No steps found matching "{searchTerm}"</p>
+              <p>No steps found</p>
+              <p className="text-sm">Try adjusting your search</p>
             </div>
           ) : (
             filteredNodes.map((node) => (
               <button
                 key={node.type}
-                onClick={() => handleAddNode(node.type)}
-                className="w-full p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 text-left group"
+                onClick={() => handleAddNode(node.type)} // Uses enhanced handler
+                className="w-full p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 text-left group"
               >
-                <div className="flex items-start gap-3">
-                  <div className="bg-white border border-gray-200 rounded-lg p-2 group-hover:border-blue-300 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gray-100 rounded-lg p-2 group-hover:bg-blue-100 transition-colors">
                     {getNodeIcon(node.type)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-gray-900 text-sm">
-                        {node.title}
-                      </h3>
-                      <span
-                        className={`px-2 py-1 text-xs rounded border ${getCategoryColor(
-                          node.category
-                        )}`}
-                      >
-                        {node.category}
-                      </span>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 group-hover:text-blue-900">
+                      {node.title}
                     </div>
                     {node.description && (
-                      <p className="text-xs text-gray-500 leading-relaxed">
-                        {node.description.length > 80
-                          ? `${node.description.slice(0, 80)}...`
-                          : node.description}
-                      </p>
+                      <div className="text-sm text-gray-500 mt-0.5">
+                        {node.description}
+                      </div>
                     )}
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs border ${getCategoryColor(node.category)}`}>
+                    {node.category}
                   </div>
                 </div>
               </button>

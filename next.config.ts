@@ -2,8 +2,7 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
  
-  reactStrictMode: true,              // extra warnings in dev 🔎
-  swcMinify: true,                    // faster/leaner builds (default true)
+  reactStrictMode: true,              // extra warnings in dev 
 
   images: {
     remotePatterns: [
