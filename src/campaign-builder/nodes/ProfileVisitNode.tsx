@@ -1,4 +1,3 @@
-// src/campaign-builder/nodes/ProfileVisitNode.tsx
 import { useState, useEffect, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Zap, Clock, MoreVertical, Trash2 } from "lucide-react";
@@ -12,6 +11,7 @@ import { ConnectionState, useConnection } from "@xyflow/react";
 const selector = (connection: ConnectionState) => {
   return connection.inProgress;
 };
+
 export default function ProfileVisitNode({
   data,
   id,
@@ -29,22 +29,18 @@ export default function ProfileVisitNode({
   const setPlusContext = useFlowStore((s) => s.setPlusContext);
 
   const connectionInProgress = useConnection(selector);
-  // NEW: Get edges to determine if this is the last node
   const edges = useFlowStore((s) => s.edges);
 
   useEffect(() => {
     setTempDelay(delay.toString());
   }, [delay, delayMode]);
 
-  // NEW: Check if this is the last node (no outgoing edges)
+  // Check if this is the last node (no outgoing edges)
   const isLastNode = useMemo(() => {
     return !edges.some((edge) => edge.source === id);
   }, [edges, id]);
 
-  const isFixed = useMemo(
-    () => delayMode === "fixed" && delay > 0,
-    [delayMode, delay]
-  );
+  const isFixed = useMemo(() => delayMode === "fixed" && delay > 0, [delayMode, delay]);
   const topIcon = isFixed ? (
     <Clock className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
   ) : (
@@ -54,7 +50,6 @@ export default function ProfileVisitNode({
   // Use centralized icon utility
   const nodeIcon = getNodeIconForCanvas("profile_visit");
 
-  // EXISTING: Keep all existing handlers unchanged
   const handleAddDelay = () => {
     updateNode(id, (node) => {
       if (typeof node.data === "object" && node.data !== null) {
@@ -83,25 +78,19 @@ export default function ProfileVisitNode({
 
   return (
     <div className="relative w-72 z-10">
-      {/* UNCHANGED: Keep existing target handle */}
       <Handle type="target" position={Position.Top} className="opacity-0" />
-
-      {/* UPDATED: ButtonHandle with conditional showButton */}
+      
+      {/* Enhanced ButtonHandle with improved styling */}
       <ButtonHandle
         type="source"
         position={Position.Bottom}
         onClick={handlePlusClick}
-        showButton={isLastNode && !connectionInProgress} // Only show on last node
+        showButton={isLastNode && !connectionInProgress}
       />
 
-      {/* UNCHANGED: All existing node content remains exactly the same */}
-      <div
-        className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
-          selected
-            ? "border-blue-500 bg-blue-50 shadow-lg"
-            : "border-gray-200 bg-white"
-        }`}
-      >
+      <div className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
+        selected ? 'border-blue-500 bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'
+      }`}>
         {/* Top label + actions */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
           <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
@@ -142,7 +131,7 @@ export default function ProfileVisitNode({
                   className="hover:underline underline-offset-2 flex items-center gap-1"
                 >
                   <span>Wait for {delay} min</span>
-                  <span className="text-gray-400"></span>
+                  <span className="text-gray-400">✎</span>
                 </button>
               )
             ) : (
@@ -150,28 +139,32 @@ export default function ProfileVisitNode({
             )}
           </div>
 
-          {/* Actions menu */}
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="text-gray-400 hover:text-gray-600 transition p-1"
+              className="text-gray-400 hover:text-gray-700"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
-                {!isFixed && (
+              <div className="absolute top-full mt-2 right-2 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-xl text-sm">
+                {delayMode === "instant" && (
                   <button
                     onClick={handleAddDelay}
                     className="flex items-center gap-3 w-full px-4 py-3 text-left text-gray-900 hover:bg-gray-50 transition"
                   >
-                    <Clock className="w-4 h-4 text-blue-500" strokeWidth={2} />
-                    <span className="text-[13px] font-medium">Add delay</span>
+                    <Clock
+                      className="w-4 h-4 text-indigo-500"
+                      strokeWidth={2}
+                    />
+                    <span className="text-[13px] font-medium">
+                      Add waiting time before this step
+                    </span>
                   </button>
                 )}
 
-                {isFixed && (
+                {delayMode === "fixed" && (
                   <button
                     onClick={() => {
                       updateNode(id, (node) => {
@@ -209,7 +202,9 @@ export default function ProfileVisitNode({
 
         {/* Main content */}
         <div className="flex items-start gap-3 px-4 pb-3">
-          <div className="bg-indigo-100 rounded-full p-2">{nodeIcon}</div>
+          <div className="bg-indigo-100 rounded-full p-2">
+            {nodeIcon}
+          </div>
           <div className="flex flex-col">
             <div className="font-semibold text-gray-900">{meta.title}</div>
             {meta.description && (

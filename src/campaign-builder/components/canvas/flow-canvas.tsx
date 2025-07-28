@@ -43,25 +43,25 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
   const setEdges = useFlowStore((s) => s.setEdges);
   const currentNodes = useFlowStore((s) => s.nodes);
 
-  // NEW: Plus context management
+  // Plus context management
   const plusContext = useFlowStore((s) => s.plusContext);
   const clearPlusContext = useFlowStore((s) => s.clearPlusContext);
 
-  // EXISTING: Keep all existing state
+  // UI state management
   const [showActionPalette, setShowActionPalette] = useState(false);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [ignoreEmptySelections, setIgnoreEmptySelections] = useState(false);
   const [pendingNodeSelection, setPendingNodeSelection] = useState<string | null>(null);
 
-  // NEW: Auto-open palette when plus button is clicked
+  // Auto-open palette when plus button is clicked
   useEffect(() => {
     if (plusContext) {
       setShowActionPalette(true);
     }
   }, [plusContext]);
 
-  // EXISTING: Keep all existing handlers unchanged
+  // Handle node changes
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       setNodes(changes);
@@ -69,6 +69,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     [setNodes]
   );
 
+  // Handle edge changes
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       setEdges(changes);
@@ -76,11 +77,13 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     [setEdges]
   );
 
+  // Handle node click for configuration
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setShowConfigPanel(true);
   };
 
+  // Handle selection changes
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
       // Don't clear selection if we're ignoring empty selections (programmatically selected node)
@@ -103,6 +106,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     [currentNodes, ignoreEmptySelections]
   );
 
+  // Clean up selected node if it's deleted
   useEffect(() => {
     if (selectedNode && !currentNodes.some((n) => n.id === selectedNode.id)) {
       setSelectedNode(null);
@@ -110,7 +114,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     }
   }, [currentNodes, selectedNode]);
 
-  // EXISTING: Keep existing effect for pending node selection
+  // Handle pending node selection for newly added nodes
   useEffect(() => {
     if (pendingNodeSelection && currentNodes.some(n => n.id === pendingNodeSelection)) {
       // Node has been added to the store, now select it in ReactFlow
@@ -124,10 +128,10 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     }
   }, [currentNodes, pendingNodeSelection, reactFlowInstance]);
 
-  // ENHANCED: Context-aware node addition handler
+  // Enhanced context-aware node addition handler
   const handleNodeAddedFromPalette = (node: Node) => {
     if (plusContext?.type === 'node') {
-      // NEW: For plus button context, find the newly added node for selection
+      // For plus button context, find the newly added node for selection
       // The node was already added via insertAtEnd, so we need to find it differently
       setTimeout(() => {
         // Find the most recently added node that matches the expected position
@@ -153,7 +157,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
         }
       }, 100); // Small delay to ensure store update completes
     } else {
-      // EXISTING: For non-plus button additions, use original logic
+      // For non-plus button additions, use original logic
       setIgnoreEmptySelections(true);
       setSelectedNode(node);
       setShowConfigPanel(true);
@@ -161,7 +165,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     }
   };
 
-  // EXISTING: Keep existing save configuration handler
+  // Handle configuration save
   const handleSaveConfiguration = () => {
     // Unselect all nodes programmatically
     reactFlowInstance.setNodes((nodes) =>
@@ -172,7 +176,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
     setIgnoreEmptySelections(false);
   };
 
-  // EXISTING: Keep existing EmptyState component
+  // Empty state component when no nodes exist
   const EmptyState = () => (
     <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50 z-10 pointer-events-none">
       <div className="text-center space-y-6 max-w-md pointer-events-auto">
@@ -240,18 +244,18 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
         {nodes.length === 0 && <EmptyState />}
       </ReactFlow>
 
-      {/* ENHANCED: ActionPalette with plus context support */}
+      {/* Action Palette with plus context support */}
       <ActionPalette
         isOpen={showActionPalette}
         onClose={() => {
           setShowActionPalette(false);
-          clearPlusContext(); // NEW: Clear plus context when closing
+          clearPlusContext(); // Clear plus context when closing
         }}
         position={{ x: 400, y: 100 }}
         onNodeAdded={handleNodeAddedFromPalette} // Uses enhanced handler
       />
 
-      {/* EXISTING: Keep existing ConfigPanel */}
+      {/* Configuration Panel for node settings */}
       <ConfigPanel
         node={selectedNode}
         isOpen={showConfigPanel}
