@@ -46,6 +46,12 @@ export function ActionPalette({
       // NEW: Use insertAtEnd for plus button clicks
       insertAtEnd(plusContext.sourceId, nodeType);
       clearPlusContext();
+    } else if (plusContext?.type === 'edge' && plusContext.edgeId) {
+      // NEW: Handle edge insertion - create node and let canvas handle insertion
+      const newNode = createNode(nodeType, {
+        position: position || { x: 400, y: 100 },
+      });
+      onNodeAdded?.(newNode);
     } else {
       // EXISTING: Use original logic for non-plus-button cases
       const newNode = createNode(nodeType, {

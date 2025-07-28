@@ -16,15 +16,15 @@ import {
   type EdgeChange,
 } from "@xyflow/react";
 import { Plus, Copy } from "lucide-react";
-import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
-import LikePostNode from "@/cb/nodes/LikePostNode";
-import SendInviteNode from "@/cb/nodes/SendInviteNode";
-import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
-import { ActionPalette } from "@/cb/palette/action-palette";
-import { ConfigPanel } from "@/cb/panels/index";
+import ProfileVisitNode from "@/campaign-builder/nodes/ProfileVisitNode";
+import LikePostNode from "@/campaign-builder/nodes/LikePostNode";
+import SendInviteNode from "@/campaign-builder/nodes/SendInviteNode";
+import LinkedInRequestAcceptedNode from "@/campaign-builder/nodes/LinkedInRequestAcceptedNode";
+import { ActionPalette } from "@/campaign-builder/palette/action-palette";
+import { ConfigPanel } from "@/campaign-builder/panels/index";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import "@xyflow/react/dist/style.css";
-
+import { ButtonEdge } from "@/components/button-edge";
 interface FlowCanvasProps {
   nodes: Node[];
   edges: Edge[];
@@ -37,6 +37,10 @@ const nodeTypes = {
   linkedin_request_accepted: LinkedInRequestAcceptedNode,
 };
 
+const edgeTypes = {
+  buttonedge: ButtonEdge,
+};
+
 function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
   const reactFlowInstance = useReactFlow();
   const setNodes = useFlowStore((s) => s.setNodes);
@@ -46,6 +50,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
   // Plus context management
   const plusContext = useFlowStore((s) => s.plusContext);
   const clearPlusContext = useFlowStore((s) => s.clearPlusContext);
+  const insertBetweenNodes = useFlowStore((s) => s.insertBetweenNodes);
 
   // UI state management
   const [showActionPalette, setShowActionPalette] = useState(false);
@@ -138,7 +143,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
         const parentNode = currentNodes.find(n => n.id === plusContext.sourceId);
         if (parentNode) {
           const newNode = currentNodes.find(n => 
-            n.position.y === parentNode.position.y + 150 && 
+            n.position.y === parentNode.position.y + 200 && // Updated to match new spacing
             n.position.x === parentNode.position.x &&
             n.id !== parentNode.id
           );
@@ -156,6 +161,22 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
           }
         }
       }, 100); // Small delay to ensure store update completes
+    }
+    else if (plusContext?.type === 'edge') {
+      // Handle adding node between two connected nodes using store method
+      if (plusContext.edgeId) {
+        const newNode = {
+          ...node,
+          id: `node_${Date.now()}`,
+          // Don't set position here - let the store calculate it based on source/target nodes
+        };
+
+        // Use the store method for clean edge insertion
+        insertBetweenNodes(plusContext.edgeId, newNode);
+        
+        // Set pending selection for the new node
+        setPendingNodeSelection(newNode.id);
+      }
     } else {
       // For non-plus button additions, use original logic
       setIgnoreEmptySelections(true);
@@ -225,6 +246,7 @@ function FlowCanvasInner({ nodes, edges }: FlowCanvasProps) {
         onNodeClick={handleNodeClick}
         onSelectionChange={onSelectionChange}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={nodes.length > 0}
