@@ -7,10 +7,10 @@ import { Plus } from "lucide-react";
 const wrapperClassNames: Record<Position, string> = {
   [Position.Top]:
     "flex-col-reverse left-1/2 -translate-y-full -translate-x-1/2",
-  [Position.Bottom]: "flex-col left-1/2 translate-y-[10px] -translate-x-1/2",
+  [Position.Bottom]: "flex-col left-1/2 -translate-x-1/2", // Keep this clean
   [Position.Left]:
     "flex-row-reverse top-1/2 -translate-x-full -translate-y-1/2",
-  [Position.Right]: "top-1/2 -translate-y-1/2 translate-x-[10px]",
+  [Position.Right]: "top-1/2 -translate-y-1/2",
 };
 
 interface ButtonHandleProps extends HandleProps {
@@ -36,7 +36,7 @@ export const ButtonHandle = ({
         >
           {/* Connection line */}
           <div
-            className={`bg-gray-300 ${vertical ? "h-10 w-[1px]" : "h-[1px] w-10"}`}
+            className={`bg-gray-300 ${vertical ? "h-8 w-[1px]" : "h-[1px] w-8"}`}
           />
           
           {/* Plus button */}
