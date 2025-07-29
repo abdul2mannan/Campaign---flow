@@ -80,6 +80,80 @@ export const setLayoutCallback = (callback: ((trigger: LayoutTrigger) => void) |
   layoutCallback = callback;
 };
 
+// PHASE 2: Helper functions for smart deletion
+const analyzeNodeConnections = (nodeId: string, edges: Edge[]) => {
+  const incomingEdges = edges.filter(e => e.target === nodeId);
+  const outgoingEdges = edges.filter(e => e.source === nodeId);
+  
+  return {
+    incomingEdges,
+    outgoingEdges,
+    isStartNode: incomingEdges.length === 0,
+    isEndNode: outgoingEdges.length === 0,
+    isMiddleNode: incomingEdges.length > 0 && outgoingEdges.length > 0,
+    isBranchingNode: outgoingEdges.length > 1,
+  };
+};
+
+const createReconnectionEdges = (incomingEdges: Edge[], outgoingEdges: Edge[]): Edge[] => {
+  const newEdges: Edge[] = [];
+  
+  // For each incoming edge source, connect to each outgoing edge target
+  incomingEdges.forEach(inEdge => {
+    outgoingEdges.forEach(outEdge => {
+      const edgeId = `${inEdge.source}-${outEdge.target}`;
+      
+      // Avoid creating duplicate edges
+      if (!newEdges.some(e => e.id === edgeId)) {
+        newEdges.push({
+          id: edgeId,
+          source: inEdge.source,
+          target: outEdge.target,
+          type: "buttonedge", // Use consistent edge type
+        });
+      }
+    });
+  });
+  
+  return newEdges;
+};
+
+// PHASE 3: Animation helper functions
+const markNodeAsNew = (node: Node): Node => {
+  return {
+    ...node,
+    data: {
+      ...node.data,
+      // Mark as new for fade-in animation
+      isNew: true,
+      animationState: 'entering',
+    },
+  };
+};
+
+const markNodeAsDeleting = (node: Node): Node => {
+  return {
+    ...node,
+    data: {
+      ...node.data,
+      // Mark as deleting for fade-out animation
+      isDeleting: true,
+      animationState: 'exiting',
+    },
+  };
+};
+
+const clearAnimationStates = (node: Node): Node => {
+  const { isNew, isDeleting, animationState, ...cleanData } = node.data || {};
+  return {
+    ...node,
+    data: {
+      ...cleanData,
+      animationState: 'stable',
+    },
+  };
+};
+
 export const useFlowStore = create<FlowState>()(
   immer<FlowState>((set, get) => ({
     /* ---------------------- EXISTING STATE ---------------------- */
@@ -129,8 +203,9 @@ export const useFlowStore = create<FlowState>()(
 
     applyLayoutResult: (nodes, edges) =>
       set((draft) => {
-        // Simple - just apply the layout result to all nodes
-        draft.nodes = nodes as any[];
+        // PHASE 3: Clear animation states when applying layout
+        const cleanNodes = nodes.map(clearAnimationStates);
+        draft.nodes = cleanNodes as any[];
         draft.edges = edges;
       }),
 
@@ -170,7 +245,20 @@ export const useFlowStore = create<FlowState>()(
           node.position = { x: 400, y: 100 };
         }
 
-        draft.nodes.push(node as any);
+        // PHASE 3: Mark new node for fade-in animation
+        const animatedNode = markNodeAsNew(node);
+        draft.nodes.push(animatedNode as any);
+        
+        // PHASE 3: Clear animation state after delay
+        setTimeout(() => {
+          const store = get();
+          const nodeIndex = store.nodes.findIndex(n => n.id === nodeId);
+          if (nodeIndex !== -1) {
+            set((draft) => {
+              Object.assign(draft.nodes[nodeIndex], clearAnimationStates(draft.nodes[nodeIndex]));
+            });
+          }
+        }, 600); // Clear after animation completes
         
         // Trigger auto-layout after state update
         setTimeout(() => {
@@ -187,17 +275,82 @@ export const useFlowStore = create<FlowState>()(
         }
       }),
 
+    // PHASE 2 + 3: ENHANCED SMART DELETION WITH ANIMATIONS
     removeNode: (id) =>
       set((draft) => {
-        draft.nodes = draft.nodes.filter((n) => n.id !== id);
-        draft.edges = draft.edges.filter(
-          (e) => e.source !== id && e.target !== id
-        );
-        
-        // Trigger auto-layout after state update
+        // PHASE 3: First mark node as deleting for fade-out animation
+        const nodeIndex = draft.nodes.findIndex(n => n.id === id);
+        if (nodeIndex !== -1) {
+          Object.assign(draft.nodes[nodeIndex], markNodeAsDeleting(draft.nodes[nodeIndex]));
+        }
+
+        // PHASE 3: Delay actual deletion to allow fade-out animation
         setTimeout(() => {
-          get().triggerLayout({ type: 'node_removed', nodeId: id });
-        }, 0);
+          set((draft) => {
+            // PHASE 2: Analyze connections before deletion
+            const nodeConnections = analyzeNodeConnections(id, draft.edges);
+            const { incomingEdges, outgoingEdges, isMiddleNode } = nodeConnections;
+            
+            // Collect affected node IDs for layout update
+            const affectedNodeIds = new Set<string>();
+            
+            // PHASE 2: Smart reconnection for middle nodes
+            if (isMiddleNode && incomingEdges.length > 0 && outgoingEdges.length > 0) {
+              console.log(`Smart deletion: Reconnecting middle node ${id}`);
+              
+              // Create new edges to reconnect the flow
+              const reconnectionEdges = createReconnectionEdges(incomingEdges, outgoingEdges);
+              
+              // Add affected nodes for layout
+              incomingEdges.forEach(e => affectedNodeIds.add(e.source));
+              outgoingEdges.forEach(e => affectedNodeIds.add(e.target));
+              
+              // Remove the node and its edges
+              draft.nodes = draft.nodes.filter((n) => n.id !== id);
+              draft.edges = draft.edges.filter(
+                (e) => e.source !== id && e.target !== id
+              );
+              
+              // Add reconnection edges
+              reconnectionEdges.forEach(edge => {
+                // Only add if edge doesn't already exist
+                if (!draft.edges.some(e => e.id === edge.id)) {
+                  draft.edges.push(edge);
+                }
+              });
+              
+              console.log(`Created ${reconnectionEdges.length} reconnection edges`);
+            } else {
+              // PHASE 2: Simple deletion for start/end nodes
+              console.log(`Simple deletion: ${nodeConnections.isStartNode ? 'Start' : nodeConnections.isEndNode ? 'End' : 'Special'} node ${id}`);
+              
+              // Collect affected neighbors
+              [...incomingEdges, ...outgoingEdges].forEach(edge => {
+                if (edge.source !== id) affectedNodeIds.add(edge.source);
+                if (edge.target !== id) affectedNodeIds.add(edge.target);
+              });
+              
+              // Standard deletion - remove node and connected edges
+              draft.nodes = draft.nodes.filter((n) => n.id !== id);
+              draft.edges = draft.edges.filter(
+                (e) => e.source !== id && e.target !== id
+              );
+            }
+            
+            // PHASE 2: Enhanced layout trigger with affected nodes
+            setTimeout(() => {
+              const affectedNodesArray = Array.from(affectedNodeIds);
+              if (affectedNodesArray.length > 0) {
+                get().triggerLayout({ 
+                  type: 'incremental', 
+                  affectedNodeIds: affectedNodesArray 
+                });
+              } else {
+                get().triggerLayout({ type: 'node_removed', nodeId: id });
+              }
+            }, 0);
+          });
+        }, 350); // Delay to allow fade-out animation
       }),
 
     setNodes: (changes) =>
@@ -276,8 +429,9 @@ export const useFlowStore = create<FlowState>()(
           node.position.y += 200;
         });
 
-        // Add the new node to the flow
-        draft.nodes.push(newNode as any);
+        // PHASE 3: Mark new node for fade-in animation
+        const animatedNode = markNodeAsNew(newNode);
+        draft.nodes.push(animatedNode as any);
 
         // Handle edge connections
         const existingEdgesFromParent = draft.edges.filter(
@@ -309,6 +463,17 @@ export const useFlowStore = create<FlowState>()(
           target: newNodeId,
           type: "buttonedge",
         });
+
+        // PHASE 3: Clear animation state after delay
+        setTimeout(() => {
+          const store = get();
+          const nodeIndex = store.nodes.findIndex(n => n.id === newNodeId);
+          if (nodeIndex !== -1) {
+            set((draft) => {
+              Object.assign(draft.nodes[nodeIndex], clearAnimationStates(draft.nodes[nodeIndex]));
+            });
+          }
+        }, 600);
         
         // Trigger incremental layout for affected nodes
         setTimeout(() => {
@@ -339,8 +504,9 @@ export const useFlowStore = create<FlowState>()(
           y: (sourceNode.position.y + targetNode.position.y) / 2,
         };
 
-        // Add the new node
-        draft.nodes.push(newNode as any);
+        // PHASE 3: Mark new node for fade-in animation
+        const animatedNode = markNodeAsNew(newNode);
+        draft.nodes.push(animatedNode as any);
 
         // Remove the original edge
         const edgeIndex = draft.edges.findIndex((e) => e.id === edgeId);
@@ -363,6 +529,17 @@ export const useFlowStore = create<FlowState>()(
             type: "buttonedge",
           }
         );
+
+        // PHASE 3: Clear animation state after delay
+        setTimeout(() => {
+          const store = get();
+          const nodeIndex = store.nodes.findIndex(n => n.id === newNodeId);
+          if (nodeIndex !== -1) {
+            set((draft) => {
+              Object.assign(draft.nodes[nodeIndex], clearAnimationStates(draft.nodes[nodeIndex]));
+            });
+          }
+        }, 600);
         
         // Trigger incremental layout for affected nodes
         setTimeout(() => {
