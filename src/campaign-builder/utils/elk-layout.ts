@@ -22,10 +22,10 @@ const DEFAULT_ELK_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "DOWN",
   "elk.eliminate": "true",
-  "elk.spacing.nodeNode": "120",
-  "elk.spacing.nodeNodeBetweenLayers": "160",
-  "elk.spacing.edgeNode": "80",
-  "elk.layered.spacing.edgeNodeBetweenLayers": "80",
+  "elk.spacing.nodeNode": "200",
+  "elk.spacing.nodeNodeBetweenLayers": "200",
+  "elk.spacing.edgeNode": "120",
+  "elk.layered.spacing.edgeNodeBetweenLayers": "120",
   "elk.portConstraints": "FIXED_ORDER",
   "elk.layered.mergeEdges": "true",
   "elk.layered.thoroughness": "7",
@@ -84,9 +84,6 @@ const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
       id: node.id,
       width: dimensions.width,
       height: dimensions.height,
-      // Preserve any existing position as a hint (ELK can use this)
-      x: node.position?.x,
-      y: node.position?.y,
     };
   });
 
@@ -127,8 +124,8 @@ const fromElkFormat = (
       return {
         ...originalNode,
         position: {
-          x: elkNode.x || 0,
-          y: elkNode.y || 0,
+          x: elkNode.x,
+          y: elkNode.y,
         },
         // Store the computed dimensions for future reference
         measured: {
@@ -150,22 +147,8 @@ export const computeLayout = async (
   edges: Edge[],
   options: LayoutOptions = {}
 ): Promise<LayoutResult> => {
-  // Early return if no nodes
   if (nodes.length === 0) {
     return { nodes: [], edges: [] };
-  }
-
-  // Single node case - just center it
-  if (nodes.length === 1) {
-    return {
-      nodes: [
-        {
-          ...nodes[0],
-          position: { x: 400, y: 100 },
-        },
-      ],
-      edges,
-    };
   }
 
   try {
@@ -193,8 +176,6 @@ export const computeLayout = async (
     return { nodes: fallbackNodes, edges };
   }
 };
-
-
 
 // Incremental layout for performance (only layout affected subgraph)
 export const computeIncrementalLayout = async (

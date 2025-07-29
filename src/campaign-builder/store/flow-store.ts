@@ -1,4 +1,3 @@
-// src/campaign-builder/store/flow-store.ts
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import {
@@ -9,18 +8,17 @@ import {
   type NodeChange,
   type EdgeChange,
 } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { createNode } from "@/campaign-builder/registry/factory";
+export const ANIMATION_MS = 600;
+export const NODE_VERTICAL_GAP = 200;
 
-// Simple layout state - no manual positioning
 interface LayoutState {
-  /** Whether auto-layout is enabled */
   autoLayoutEnabled: boolean;
-  /** Whether layout is currently computing */
   isLayouting: boolean;
-  /** Layout direction preference */
-  layoutDirection: 'DOWN' | 'UP' | 'LEFT' | 'RIGHT';
+  layoutDirection: "DOWN" | "UP" | "LEFT" | "RIGHT";
 }
 
-// Plus button context type (existing)
 interface PlusContext {
   type: "node" | "edge";
   sourceId: string;
@@ -28,557 +26,326 @@ interface PlusContext {
   targetId?: string;
   sourceNodeId?: string;
   targetNodeId?: string;
+  /** Cursor / click position where the palette was opened */
   position?: { x: number; y: number };
 }
 
-// Layout trigger types
-type LayoutTrigger = 
-  | { type: 'node_added'; nodeId: string }
-  | { type: 'node_removed'; nodeId: string }
-  | { type: 'edge_added'; edgeId: string }
-  | { type: 'edge_removed'; edgeId: string }
-  | { type: 'manual'; }
-  | { type: 'incremental'; affectedNodeIds: string[] };
+export type LayoutTrigger = { type: "auto"; affectedNodeIds?: string[] };
 
 interface FlowState extends LayoutState {
-  /* ---------------------- EXISTING STATE ---------------------- */
   nodes: Node[];
   edges: Edge[];
   plusContext: PlusContext | null;
 
-  /* ---------------------- LAYOUT ACTIONS ---------------------- */
-  /** Enable/disable auto-layout */
-  setAutoLayoutEnabled: (enabled: boolean) => void;
-  /** Set layout computing state */
-  setIsLayouting: (isLayouting: boolean) => void;
-  /** Change layout direction */
-  setLayoutDirection: (direction: 'DOWN' | 'UP' | 'LEFT' | 'RIGHT') => void;
-  /** Trigger layout computation */
-  triggerLayout: (trigger: LayoutTrigger) => void;
-  /** Apply layout result */
-  applyLayoutResult: (nodes: Node[], edges: Edge[]) => void;
-  /** Clear all data */
-  clearFlow: () => void;
+  /* UI toggles */
+  setAutoLayoutEnabled(enabled: boolean): void;
+  setIsLayouting(v: boolean): void;
+  setLayoutDirection(dir: "DOWN" | "UP" | "LEFT" | "RIGHT"): void;
 
-  /* ---------------------- EXISTING ACTIONS ---------------------- */
-  addNodeAtEnd: (node: Node) => void;
-  updateNode: (id: string, updater: (node: Node) => void) => void;
-  removeNode: (id: string) => void;
-  setNodes: (changes: NodeChange[]) => void;
-  setEdges: (changes: EdgeChange[]) => void;
-  addEdge: (edge: Edge) => void;
-  setPlusContext: (context: PlusContext | null) => void;
-  clearPlusContext: () => void;
-  insertAtEnd: (parentId: string, nodeType: string) => void;
-  insertBetweenNodes: (edgeId: string, newNode: Node) => void;
+  /* Layout orchestration */
+  triggerLayout(trigger: LayoutTrigger): void;
+  applyLayoutResult(nodes: Node[], edges: Edge[]): void;
+
+  /* Full reset */
+  clearFlow(): void;
+
+  /* CRUD helpers */
+  addNodeAtEnd(nodeType: string): void;
+  updateNode(id: string, updater: (n: Node) => void): void;
+  removeNode(id: string): void;
+
+  setNodes(changes: NodeChange[]): void;
+  setEdges(changes: EdgeChange[]): void;
+  addEdge(edge: Edge): void;
+
+  /* Plus-button context */
+  setPlusContext(ctx: PlusContext | null): void;
+  clearPlusContext(): void;
+
+  /* Insertions that rely on ELK */
+  insertAtEnd(parentId: string, nodeType: string): void;
+  insertBetweenNodes(edgeId: string, nodeType: string): void;
 }
 
-// Global layout trigger callback (will be set by the auto-layout hook)
-let layoutCallback: ((trigger: LayoutTrigger) => void) | null = null;
-
-export const setLayoutCallback = (callback: ((trigger: LayoutTrigger) => void) | null) => {
-  layoutCallback = callback;
+let layoutCallback: ((t: LayoutTrigger) => void) | null = null;
+export const setLayoutCallback = (cb: typeof layoutCallback) => {
+  layoutCallback = cb;
 };
 
-// PHASE 2: Helper functions for smart deletion
 const analyzeNodeConnections = (nodeId: string, edges: Edge[]) => {
-  const incomingEdges = edges.filter(e => e.target === nodeId);
-  const outgoingEdges = edges.filter(e => e.source === nodeId);
-  
+  const incoming = edges.filter((e) => e.target === nodeId);
+  const outgoing = edges.filter((e) => e.source === nodeId);
   return {
-    incomingEdges,
-    outgoingEdges,
-    isStartNode: incomingEdges.length === 0,
-    isEndNode: outgoingEdges.length === 0,
-    isMiddleNode: incomingEdges.length > 0 && outgoingEdges.length > 0,
-    isBranchingNode: outgoingEdges.length > 1,
+    incoming,
+    outgoing,
+    isMiddle: incoming.length > 0 && outgoing.length > 0,
   };
 };
 
-const createReconnectionEdges = (incomingEdges: Edge[], outgoingEdges: Edge[]): Edge[] => {
-  const newEdges: Edge[] = [];
-  
-  // For each incoming edge source, connect to each outgoing edge target
-  incomingEdges.forEach(inEdge => {
-    outgoingEdges.forEach(outEdge => {
-      const edgeId = `${inEdge.source}-${outEdge.target}`;
-      
-      // Avoid creating duplicate edges
-      if (!newEdges.some(e => e.id === edgeId)) {
-        newEdges.push({
-          id: edgeId,
-          source: inEdge.source,
-          target: outEdge.target,
-          type: "buttonedge", // Use consistent edge type
-        });
-      }
-    });
-  });
-  
-  return newEdges;
-};
+const createReconnectionEdges = (incoming: Edge[], outgoing: Edge[]): Edge[] =>
+  incoming.flatMap((inE) =>
+    outgoing.map((outE) => ({
+      id: `${inE.source}-${outE.target}`,
+      source: inE.source,
+      target: outE.target,
+      type: "buttonedge",
+    }))
+  );
 
-// PHASE 3: Animation helper functions
-const markNodeAsNew = (node: Node): Node => {
-  return {
-    ...node,
-    data: {
-      ...node.data,
-      // Mark as new for fade-in animation
-      isNew: true,
-      animationState: 'entering',
-    },
-  };
-};
+const markNode = (node: Node, state: "entering" | "exiting") => ({
+  ...node,
+  data: { ...node.data, animationState: state },
+});
 
-const markNodeAsDeleting = (node: Node): Node => {
-  return {
-    ...node,
-    data: {
-      ...node.data,
-      // Mark as deleting for fade-out animation
-      isDeleting: true,
-      animationState: 'exiting',
-    },
-  };
-};
-
-const clearAnimationStates = (node: Node): Node => {
-  const { isNew, isDeleting, animationState, ...cleanData } = node.data || {};
-  return {
-    ...node,
-    data: {
-      ...cleanData,
-      animationState: 'stable',
-    },
-  };
-};
+const clearAnim = (node: Node): Node => ({
+  ...node,
+  data: { ...(node.data || {}), animationState: "stable" },
+});
 
 export const useFlowStore = create<FlowState>()(
   immer<FlowState>((set, get) => ({
-    /* ---------------------- EXISTING STATE ---------------------- */
+    /* --------------------------- reactive values ------------------------ */
     nodes: [],
     edges: [],
     plusContext: null,
 
-    /* ---------------------- LAYOUT STATE ---------------------- */
     autoLayoutEnabled: true,
     isLayouting: false,
-    layoutDirection: 'DOWN',
+    layoutDirection: "DOWN",
 
-    /* ---------------------- LAYOUT ACTIONS ---------------------- */
+    /* ------------------------------- UI -------------------------------- */
     setAutoLayoutEnabled: (enabled) =>
-      set((draft) => {
-        draft.autoLayoutEnabled = enabled;
-        // If enabling auto-layout, trigger a layout
-        if (enabled && draft.nodes.length > 0) {
-          setTimeout(() => {
-            get().triggerLayout({ type: 'manual' });
-          }, 0);
+      set((d) => {
+        d.autoLayoutEnabled = enabled;
+        if (enabled && d.nodes.length) {
+          get().triggerLayout({ type: "auto" });
         }
       }),
 
-    setIsLayouting: (isLayouting) =>
-      set((draft) => {
-        draft.isLayouting = isLayouting;
+    setIsLayouting: (v) =>
+      set((d) => {
+        d.isLayouting = v;
       }),
 
-    setLayoutDirection: (direction) =>
-      set((draft) => {
-        draft.layoutDirection = direction;
-        // Trigger layout with new direction if auto-layout is enabled
-        if (draft.autoLayoutEnabled && draft.nodes.length > 0) {
-          setTimeout(() => {
-            get().triggerLayout({ type: 'manual' });
-          }, 0);
+    setLayoutDirection: (dir) =>
+      set((d) => {
+        d.layoutDirection = dir;
+        if (d.autoLayoutEnabled && d.nodes.length) {
+          get().triggerLayout({ type: "auto" });
         }
       }),
 
-    triggerLayout: (trigger) => {
-      const state = get();
-      if (state.autoLayoutEnabled && !state.isLayouting && layoutCallback) {
-        layoutCallback(trigger);
+    /* --------------------------- Layout orchestration ------------------ */
+    triggerLayout: (t) => {
+      const s = get();
+      if (s.autoLayoutEnabled && !s.isLayouting && layoutCallback) {
+        layoutCallback(t);
       }
     },
 
     applyLayoutResult: (nodes, edges) =>
-      set((draft) => {
-        // PHASE 3: Clear animation states when applying layout
-        const cleanNodes = nodes.map(clearAnimationStates);
-        draft.nodes = cleanNodes as any[];
-        draft.edges = edges;
+      set((d) => {
+        d.nodes = nodes.map(clearAnim) as any[];
+        d.edges = edges;
       }),
 
+    /* ----------------------------- House-keeping ----------------------- */
     clearFlow: () =>
-      set((draft) => {
-        draft.nodes = [];
-        draft.edges = [];
-        draft.plusContext = null;
-        draft.isLayouting = false;
+      set((d) => {
+        d.nodes = [];
+        d.edges = [];
+        d.plusContext = null;
+        d.isLayouting = false;
       }),
 
-    /* ---------------------- ENHANCED EXISTING ACTIONS ---------------------- */
+    /* ------------------------------- CRUD ------------------------------ */
+    addNodeAtEnd: (nodeType) =>
+      set((d) => {
+        const last = d.nodes[d.nodes.length - 1];
+        /* Let ELK handle positioning entirely */
+        const node = createNode(nodeType, {
+          position: { x: 0, y: 0 },
+        });
 
-    addNodeAtEnd: (node) =>
-      set((draft) => {
-        const last = draft.nodes[draft.nodes.length - 1];
-
-        // Capture node ID before async operation
-        const nodeId = node.id;
-
-        // Set position for the new node (will be overridden by auto-layout if enabled)
         if (last) {
-          node.position = {
-            x: last.position.x,
-            y: last.position.y + 200,
-          };
-
-          // Auto-wire edge from last node → new node
-          draft.edges.push({
-            id: `${last.id}-${nodeId}`,
+          d.edges.push({
+            id: `${last.id}-${node.id}`,
             source: last.id,
-            target: nodeId,
+            target: node.id,
             type: "buttonedge",
           });
-        } else {
-          // First node - center it
-          node.position = { x: 400, y: 100 };
         }
 
-        // PHASE 3: Mark new node for fade-in animation
-        const animatedNode = markNodeAsNew(node);
-        draft.nodes.push(animatedNode as any);
-        
-        // PHASE 3: Clear animation state after delay
+        d.nodes.push(markNode(node, "entering") as any);
+
         setTimeout(() => {
-          const store = get();
-          const nodeIndex = store.nodes.findIndex(n => n.id === nodeId);
-          if (nodeIndex !== -1) {
-            set((draft) => {
-              Object.assign(draft.nodes[nodeIndex], clearAnimationStates(draft.nodes[nodeIndex]));
-            });
-          }
-        }, 600); // Clear after animation completes
-        
-        // Trigger auto-layout after state update
-        setTimeout(() => {
-          get().triggerLayout({ type: 'node_added', nodeId });
-        }, 0);
+          set((dd) => {
+            const idx = dd.nodes.findIndex((n) => n.id === node.id);
+            if (idx !== -1) {
+              dd.nodes[idx].data = {
+                ...dd.nodes[idx].data,
+                animationState: "stable",
+              };
+            }
+          });
+        }, ANIMATION_MS);
+
+        get().triggerLayout({
+          type: "auto",
+          affectedNodeIds: [node.id, last?.id!].filter(Boolean),
+        });
       }),
 
     updateNode: (id, updater) =>
-      set((draft) => {
-        const idx = draft.nodes.findIndex((n) => n.id === id);
-        if (idx !== -1) {
-          updater(draft.nodes[idx]);
-          // Note: Don't trigger layout for config updates, only structure changes
-        }
+      set((d) => {
+        const idx = d.nodes.findIndex((n) => n.id === id);
+        if (idx !== -1) updater(d.nodes[idx]);
       }),
 
-    // PHASE 2 + 3: ENHANCED SMART DELETION WITH ANIMATIONS
     removeNode: (id) =>
-      set((draft) => {
-        // PHASE 3: First mark node as deleting for fade-out animation
-        const nodeIndex = draft.nodes.findIndex(n => n.id === id);
-        if (nodeIndex !== -1) {
-          Object.assign(draft.nodes[nodeIndex], markNodeAsDeleting(draft.nodes[nodeIndex]));
-        }
+      set((d) => {
+        const idx = d.nodes.findIndex((n) => n.id === id);
+        if (idx === -1) return;
 
-        // PHASE 3: Delay actual deletion to allow fade-out animation
+        d.nodes[idx] = markNode(d.nodes[idx], "exiting") as any;
+
         setTimeout(() => {
           set((draft) => {
-            // PHASE 2: Analyze connections before deletion
-            const nodeConnections = analyzeNodeConnections(id, draft.edges);
-            const { incomingEdges, outgoingEdges, isMiddleNode } = nodeConnections;
-            
-            // Collect affected node IDs for layout update
-            const affectedNodeIds = new Set<string>();
-            
-            // PHASE 2: Smart reconnection for middle nodes
-            if (isMiddleNode && incomingEdges.length > 0 && outgoingEdges.length > 0) {
-              console.log(`Smart deletion: Reconnecting middle node ${id}`);
-              
-              // Create new edges to reconnect the flow
-              const reconnectionEdges = createReconnectionEdges(incomingEdges, outgoingEdges);
-              
-              // Add affected nodes for layout
-              incomingEdges.forEach(e => affectedNodeIds.add(e.source));
-              outgoingEdges.forEach(e => affectedNodeIds.add(e.target));
-              
-              // Remove the node and its edges
-              draft.nodes = draft.nodes.filter((n) => n.id !== id);
-              draft.edges = draft.edges.filter(
-                (e) => e.source !== id && e.target !== id
-              );
-              
-              // Add reconnection edges
-              reconnectionEdges.forEach(edge => {
-                // Only add if edge doesn't already exist
-                if (!draft.edges.some(e => e.id === edge.id)) {
-                  draft.edges.push(edge);
-                }
+            const { incoming, outgoing, isMiddle } = analyzeNodeConnections(
+              id,
+              draft.edges
+            );
+            const affected = new Set<string>();
+
+            if (isMiddle) {
+              const recon = createReconnectionEdges(incoming, outgoing);
+              recon.forEach((e) => {
+                if (!draft.edges.some((ex) => ex.id === e.id))
+                  draft.edges.push(e);
               });
-              
-              console.log(`Created ${reconnectionEdges.length} reconnection edges`);
-            } else {
-              // PHASE 2: Simple deletion for start/end nodes
-              console.log(`Simple deletion: ${nodeConnections.isStartNode ? 'Start' : nodeConnections.isEndNode ? 'End' : 'Special'} node ${id}`);
-              
-              // Collect affected neighbors
-              [...incomingEdges, ...outgoingEdges].forEach(edge => {
-                if (edge.source !== id) affectedNodeIds.add(edge.source);
-                if (edge.target !== id) affectedNodeIds.add(edge.target);
-              });
-              
-              // Standard deletion - remove node and connected edges
-              draft.nodes = draft.nodes.filter((n) => n.id !== id);
-              draft.edges = draft.edges.filter(
-                (e) => e.source !== id && e.target !== id
-              );
+              incoming.forEach((e) => affected.add(e.source));
+              outgoing.forEach((e) => affected.add(e.target));
             }
-            
-            // PHASE 2: Enhanced layout trigger with affected nodes
-            setTimeout(() => {
-              const affectedNodesArray = Array.from(affectedNodeIds);
-              if (affectedNodesArray.length > 0) {
-                get().triggerLayout({ 
-                  type: 'incremental', 
-                  affectedNodeIds: affectedNodesArray 
-                });
-              } else {
-                get().triggerLayout({ type: 'node_removed', nodeId: id });
-              }
-            }, 0);
+
+            draft.nodes = draft.nodes.filter((n) => n.id !== id);
+            draft.edges = draft.edges.filter(
+              (e) => e.source !== id && e.target !== id
+            );
+
+            get().triggerLayout({
+              type: "auto",
+              affectedNodeIds: [...affected],
+            });
           });
-        }, 350); // Delay to allow fade-out animation
+        }, ANIMATION_MS / 2);
       }),
 
     setNodes: (changes) =>
-      set((draft) => {
-        // Apply all changes without manual position tracking
-        draft.nodes = applyNodeChanges(changes, draft.nodes);
+      set((d) => {
+        d.nodes = applyNodeChanges(changes, d.nodes);
       }),
 
     setEdges: (changes) =>
-      set((draft) => {
-        const oldEdgeCount = draft.edges.length;
-        draft.edges = applyEdgeChanges(changes, draft.edges);
-        
-        // Trigger layout if edges were added/removed
-        if (draft.edges.length !== oldEdgeCount) {
-          setTimeout(() => {
-            get().triggerLayout({ type: 'manual' });
-          }, 0);
-        }
+      set((d) => {
+        const structural = changes.some(
+          (c) => c.type === "add" || c.type === "remove"
+        );
+        d.edges = applyEdgeChanges(changes, d.edges);
+        if (structural) get().triggerLayout({ type: "auto" });
       }),
 
     addEdge: (edge) =>
-      set((draft) => {
-        // Capture edge properties before async operation
-        const sourceId = edge.source;
-        const targetId = edge.target;
-        
-        draft.edges.push(edge);
-        
-        // Trigger incremental layout for connected nodes
-        setTimeout(() => {
-          get().triggerLayout({ 
-            type: 'incremental', 
-            affectedNodeIds: [sourceId, targetId] 
-          });
-        }, 0);
+      set((d) => {
+        d.edges.push(edge);
+        get().triggerLayout({
+          type: "auto",
+          affectedNodeIds: [edge.source, edge.target],
+        });
       }),
 
-    /* ---------------------- PLUS CONTEXT ACTIONS ---------------------- */
-    setPlusContext: (context) =>
-      set((draft) => {
-        draft.plusContext = context;
-      }),
-
-    clearPlusContext: () =>
-      set((draft) => {
-        draft.plusContext = null;
-      }),
+    /* ---------------------- plus-button helpers ------------------------ */
+    setPlusContext: (ctx) => set((d) => void (d.plusContext = ctx)),
+    clearPlusContext: () => set((d) => void (d.plusContext = null)),
 
     insertAtEnd: (parentId, nodeType) =>
-      set((draft) => {
-        // Import createNode dynamically to avoid circular dependency
-        const { createNode } = require("@/campaign-builder/registry/factory");
-
-        const parentNode = draft.nodes.find((n) => n.id === parentId);
-        if (!parentNode) return;
-
-        // Create new node positioned below parent
-        const newNode = createNode(nodeType, {
-          position: {
-            x: parentNode.position.x,
-            y: parentNode.position.y + 200,
-          },
-        });
-
-        // Capture the new node ID before async operations
-        const newNodeId = newNode.id;
-
-        // Find nodes that need to shift down (those below the parent)
-        const nodesToShift = draft.nodes.filter(
-          (n) => n.position.y > parentNode.position.y
-        );
-
-        // Shift existing downstream nodes down by 200px for consistent spacing
-        nodesToShift.forEach((node) => {
-          node.position.y += 200;
-        });
-
-        // PHASE 3: Mark new node for fade-in animation
-        const animatedNode = markNodeAsNew(newNode);
-        draft.nodes.push(animatedNode as any);
-
-        // Handle edge connections
-        const existingEdgesFromParent = draft.edges.filter(
-          (e) => e.source === parentId
-        );
-
-        if (existingEdgesFromParent.length > 0) {
-          // Parent already has connections - insert new node in between
-          existingEdgesFromParent.forEach((edge) => {
-            const edgeIndex = draft.edges.findIndex((e) => e.id === edge.id);
-            if (edgeIndex !== -1) {
-              draft.edges.splice(edgeIndex, 1);
-            }
-
-            // Create new edge: new node → old target
-            draft.edges.push({
-              id: `${newNodeId}-${edge.target}`,
-              source: newNodeId,
-              target: edge.target,
-              type: "buttonedge",
-            });
-          });
-        }
-
-        // Always create edge: parent → new node
-        draft.edges.push({
-          id: `${parentId}-${newNodeId}`,
+      set((d) => {
+        const parent = d.nodes.find((n) => n.id === parentId);
+        if (!parent) return;
+        const newNode = createNode(nodeType, { position: parent.position });
+        d.nodes.push(markNode(newNode, "entering") as any);
+        d.edges.push({
+          id: `${parentId}-${newNode.id}`,
           source: parentId,
-          target: newNodeId,
+          target: newNode.id,
           type: "buttonedge",
         });
 
-        // PHASE 3: Clear animation state after delay
         setTimeout(() => {
-          const store = get();
-          const nodeIndex = store.nodes.findIndex(n => n.id === newNodeId);
-          if (nodeIndex !== -1) {
-            set((draft) => {
-              Object.assign(draft.nodes[nodeIndex], clearAnimationStates(draft.nodes[nodeIndex]));
-            });
-          }
-        }, 600);
-        
-        // Trigger incremental layout for affected nodes
-        setTimeout(() => {
-          get().triggerLayout({ 
-            type: 'incremental', 
-            affectedNodeIds: [parentId, newNodeId] 
+          set((dd) => {
+            const idx = dd.nodes.findIndex((n) => n.id === newNode.id);
+            if (idx !== -1) {
+              dd.nodes[idx].data = {
+                ...dd.nodes[idx].data,
+                animationState: "stable",
+              };
+            }
           });
-        }, 0);
+        }, ANIMATION_MS);
+
+        get().triggerLayout({
+          type: "auto",
+          affectedNodeIds: [parentId, newNode.id],
+        });
       }),
 
-    insertBetweenNodes: (edgeId, newNode) =>
-      set((draft) => {
-        const edgeToReplace = draft.edges.find((e) => e.id === edgeId);
-        if (!edgeToReplace) return;
+    insertBetweenNodes: (edgeId, nodeType) =>
+      set((d) => {
+        const e = d.edges.find((ed) => ed.id === edgeId);
+        if (!e) return;
 
-        const sourceNode = draft.nodes.find((n) => n.id === edgeToReplace.source);
-        const targetNode = draft.nodes.find((n) => n.id === edgeToReplace.target);
-        if (!sourceNode || !targetNode) return;
+        // Get the target node's position to use as initial position
+        const targetNode = d.nodes.find((n) => n.id === e.target);
+        const initialPosition = targetNode
+          ? targetNode.position
+          : { x: 0, y: 0 };
 
-        // Capture IDs before async operation to avoid revoked proxy access
-        const sourceId = edgeToReplace.source;
-        const targetId = edgeToReplace.target;
-        const newNodeId = newNode.id;
+        const newNode = createNode(nodeType, { position: initialPosition });
+        d.nodes.push(markNode(newNode, "entering") as any);
+        d.edges = d.edges.filter((ed) => ed.id !== edgeId);
 
-        // Position new node between source and target
-        newNode.position = {
-          x: (sourceNode.position.x + targetNode.position.x) / 2,
-          y: (sourceNode.position.y + targetNode.position.y) / 2,
-        };
-
-        // PHASE 3: Mark new node for fade-in animation
-        const animatedNode = markNodeAsNew(newNode);
-        draft.nodes.push(animatedNode as any);
-
-        // Remove the original edge
-        const edgeIndex = draft.edges.findIndex((e) => e.id === edgeId);
-        if (edgeIndex !== -1) {
-          draft.edges.splice(edgeIndex, 1);
-        }
-
-        // Create two new edges: source → new node → target
-        draft.edges.push(
+        d.edges.push(
           {
-            id: `${sourceId}-${newNodeId}`,
-            source: sourceId,
-            target: newNodeId,
+            id: `${e.source}-${newNode.id}`,
+            source: e.source,
+            target: newNode.id,
             type: "buttonedge",
           },
           {
-            id: `${newNodeId}-${targetId}`,
-            source: newNodeId,
-            target: targetId,
+            id: `${newNode.id}-${e.target}`,
+            source: newNode.id,
+            target: e.target,
             type: "buttonedge",
           }
         );
 
-        // PHASE 3: Clear animation state after delay
         setTimeout(() => {
-          const store = get();
-          const nodeIndex = store.nodes.findIndex(n => n.id === newNodeId);
-          if (nodeIndex !== -1) {
-            set((draft) => {
-              Object.assign(draft.nodes[nodeIndex], clearAnimationStates(draft.nodes[nodeIndex]));
-            });
-          }
-        }, 600);
-        
-        // Trigger incremental layout for affected nodes
-        setTimeout(() => {
-          get().triggerLayout({ 
-            type: 'incremental', 
-            affectedNodeIds: [sourceId, newNodeId, targetId] 
+          set((dd) => {
+            const idx = dd.nodes.findIndex((n) => n.id === newNode.id);
+            if (idx !== -1) {
+              dd.nodes[idx].data = {
+                ...dd.nodes[idx].data,
+                animationState: "stable",
+              };
+            }
           });
-        }, 0);
+        }, ANIMATION_MS);
+
+        get().triggerLayout({
+          type: "auto",
+          affectedNodeIds: [e.source, newNode.id, e.target],
+        });
       }),
   }))
 );
 
-// Helper functions for external use
-export const getFlowState = () => useFlowStore.getState();
-
-// Utility function to get layout statistics
-export const getLayoutStats = () => {
-  const state = useFlowStore.getState();
-  return {
-    totalNodes: state.nodes.length,
-    totalEdges: state.edges.length,
-    autoLayoutEnabled: state.autoLayoutEnabled,
-    isLayouting: state.isLayouting,
-    layoutDirection: state.layoutDirection,
-  };
-};
-
-// Utility function for debugging
-export const debugFlowState = () => {
-  const state = useFlowStore.getState();
-  console.log('Flow State Debug:', {
-    nodes: state.nodes.map(n => ({ id: n.id, position: n.position, type: n.type })),
-    edges: state.edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
-    layoutState: {
-      autoLayoutEnabled: state.autoLayoutEnabled,
-      isLayouting: state.isLayouting,
-      layoutDirection: state.layoutDirection,
-    }
-  });
-};
-
-export type { LayoutTrigger, PlusContext, FlowState };
+export type { PlusContext, FlowState };
