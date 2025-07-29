@@ -6,7 +6,7 @@ import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { Node } from "@xyflow/react";
 import type { ConfigField } from "@/campaign-builder/registry/nodeRegistry";
 import { getNodeIcon } from "@/campaign-builder/utils/node-icons";
-
+import "@xyflow/react/dist/style.css";
 interface ConfigPanelProps {
   node: Node | null;
   isOpen: boolean;

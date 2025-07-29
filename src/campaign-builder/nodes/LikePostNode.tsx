@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import { Zap, Clock, MoreVertical, Trash2 } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { LikePostNode as LikePostNodeType } from "@/campaign-builder/types/flow-nodes";

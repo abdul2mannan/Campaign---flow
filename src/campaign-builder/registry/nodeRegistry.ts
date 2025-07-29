@@ -4,7 +4,7 @@ import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
 import LikePostNode from "@/cb/nodes/LikePostNode";
 import SendInviteNode from "@/cb/nodes/SendInviteNode";
 import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
-
+import "@xyflow/react/dist/style.css";
 /** Generic node component type */
 export type NodeComponent = React.FC<NodeProps<Node>>;
 

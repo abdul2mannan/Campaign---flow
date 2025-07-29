@@ -7,7 +7,7 @@ import type { ProfileVisitNode as ProfileVisitNodeType } from "@/campaign-builde
 import { getNodeIconForCanvas } from "@/campaign-builder/utils/node-icons";
 import { ButtonHandle } from "@/components/button-handle";
 import { ConnectionState, useConnection } from "@xyflow/react";
-
+import "@xyflow/react/dist/style.css";
 const selector = (connection: ConnectionState) => {
   return connection.inProgress;
 };

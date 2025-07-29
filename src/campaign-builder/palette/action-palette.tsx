@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Search } from "lucide-react";
 import type { Node } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import { nodeRegistry } from "@/campaign-builder/registry/nodeRegistry";
 import { createNode } from "@/campaign-builder/registry/factory";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
@@ -46,6 +47,7 @@ export function ActionPalette({
       // NEW: Use insertAtEnd for plus button clicks
       insertAtEnd(plusContext.sourceId, nodeType);
       clearPlusContext();
+      // Don't call onNodeAdded here - insertAtEnd handles everything
     } else if (plusContext?.type === 'edge' && plusContext.edgeId) {
       // NEW: Handle edge insertion - create node and let canvas handle insertion
       const newNode = createNode(nodeType, {
@@ -58,15 +60,15 @@ export function ActionPalette({
         position: position || { x: 400, y: 100 },
       });
       addNode(newNode);
+      
+      // Call onNodeAdded for non-plus-button cases
+      onNodeAdded?.({ 
+        id: '', 
+        type: nodeType, 
+        position: { x: 0, y: 0 }, 
+        data: {} 
+      } as Node);
     }
-
-    // UNCHANGED: Keep existing notification logic
-    onNodeAdded?.({ 
-      id: '', 
-      type: nodeType, 
-      position: { x: 0, y: 0 }, 
-      data: {} 
-    } as Node);
 
     onClose();
   };

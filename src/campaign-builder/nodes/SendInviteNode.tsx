@@ -5,7 +5,7 @@ import { Zap, Clock, MoreVertical, Trash2 } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { SendInviteNode as SendInviteNodeType } from "@/campaign-builder/types/flow-nodes";
 import { getNodeIconForCanvas } from "@/campaign-builder/utils/node-icons";
-
+import "@xyflow/react/dist/style.css";
 export default function SendInviteNode({
   data,
   id,

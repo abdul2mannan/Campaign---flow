@@ -1,7 +1,7 @@
 // src/campaign-builder/types/flow-nodes.ts
 import type { Node } from "@xyflow/react";
 import type { NodeMetaCore } from "@/campaign-builder/registry/nodeRegistry";
-
+import "@xyflow/react/dist/style.css";
 /** Data object carried by a `profile_visit` node (must extend Record) */
 export type ProfileVisitData = {
   meta: NodeMetaCore;

@@ -1,11 +1,16 @@
 import type { Node } from "@xyflow/react";
 import { nodeRegistry } from "./nodeRegistry";
 import { useFlowStore } from "../store/flow-store";
+import "@xyflow/react/dist/style.css";
+
+// Counter to ensure unique IDs even with same timestamp
+let idCounter = 0;
 
 function getNextId(type: string): string {
-  // Use timestamp for unique ID generation
+  // Use timestamp + counter for truly unique ID generation
   const timestamp = Date.now();
-  const finalId = `${type}-${timestamp}`;
+  const counter = ++idCounter;
+  const finalId = `${type}-${timestamp}-${counter}`;
   return finalId;
 }
 
