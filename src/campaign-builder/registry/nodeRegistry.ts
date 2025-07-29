@@ -25,6 +25,7 @@ export interface PrereqRules {
   requiresUpstream?: string[];
   branchContext?: "yes" | "no" | null;
   integrationFlags?: string[];
+  addonFlags?: string[];
 }
 
 export interface NodeMetaCore {

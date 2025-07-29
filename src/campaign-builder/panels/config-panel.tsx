@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Settings, Zap, Clock, Heart, Eye } from "lucide-react";
+import { X, Settings, Zap, Clock, Eye } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { Node } from "@xyflow/react";
 import type { ConfigField } from "@/campaign-builder/registry/nodeRegistry";
 import { getNodeIcon } from "@/campaign-builder/utils/node-icons";
 import "@xyflow/react/dist/style.css";
+
 interface ConfigPanelProps {
   node: Node | null;
   isOpen: boolean;
@@ -14,7 +15,12 @@ interface ConfigPanelProps {
   onSave?: () => void;
 }
 
-export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps) {
+export function ConfigPanel({
+  node,
+  isOpen,
+  onClose,
+  onSave,
+}: ConfigPanelProps) {
   const updateNode = useFlowStore((s) => s.updateNode);
   const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
@@ -50,7 +56,7 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
         if (mode === "fixed") {
           if (!d.config) d.config = {};
           if (!d.config.delayMinutes || d.config.delayMinutes === 0) {
-            d.config.delayMinutes = 60; // Default to 5 minutes
+            d.config.delayMinutes = 15; // Default to 15 minutes
           }
         }
       }
@@ -108,7 +114,9 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
               onChange={(e) => handleConfigChange(field.key, e.target.checked)}
               className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <span className="text-sm font-medium text-gray-700">{field.label}</span>
+            <span className="text-sm font-medium text-gray-700">
+              {field.label}
+            </span>
           </label>
         );
       case "select":
@@ -146,7 +154,9 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
               {getNodeIcon(meta?.type || "", { className: "w-5 h-5" })}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Configure Action</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Configure Action
+              </h2>
               <p className="text-sm text-gray-600">{meta?.title}</p>
             </div>
           </div>
@@ -169,7 +179,9 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
                 {getNodeIcon(meta?.type || "", { className: "w-5 h-5" })}
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">{meta?.title}</h3>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  {meta?.title}
+                </h3>
                 {meta?.description && (
                   <p className="text-sm text-gray-600">{meta.description}</p>
                 )}
@@ -179,7 +191,6 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
         </div>
 
         {/* Timing Section */}
-      {/* Timing Section */}
         {meta?.delayModes?.length > 0 && (
           <div className="p-6 border-b border-gray-100">
             <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -199,9 +210,11 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`p-2 rounded-lg ${
-                        delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
-                      }`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
+                        }`}
+                      >
                         <Clock className="w-5 h-5" />
                       </div>
                       <span className="text-sm font-medium">Within</span>
@@ -216,9 +229,13 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`p-2 rounded-lg ${
-                        delayMode === "waitUntil" ? "bg-blue-100" : "bg-gray-100"
-                      }`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          delayMode === "waitUntil"
+                            ? "bg-blue-100"
+                            : "bg-gray-100"
+                        }`}
+                      >
                         <Eye className="w-5 h-5" />
                       </div>
                       <span className="text-sm font-medium">Wait until</span>
@@ -237,9 +254,13 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`p-2 rounded-lg ${
-                        delayMode === "instant" ? "bg-blue-100" : "bg-gray-100"
-                      }`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          delayMode === "instant"
+                            ? "bg-blue-100"
+                            : "bg-gray-100"
+                        }`}
+                      >
                         <Zap className="w-5 h-5" />
                       </div>
                       <span className="text-sm font-medium">Immediate</span>
@@ -254,9 +275,11 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`p-2 rounded-lg ${
-                        delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
-                      }`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          delayMode === "fixed" ? "bg-blue-100" : "bg-gray-100"
+                        }`}
+                      >
                         <Clock className="w-5 h-5" />
                       </div>
                       <span className="text-sm font-medium">Delayed</span>
@@ -284,15 +307,7 @@ export function ConfigPanel({ node, isOpen, onClose, onSave }: ConfigPanelProps)
                       <span className="text-red-500 ml-1">*</span>
                     )}
                   </label>
-                  <div className="relative">
-                    {renderConfigField(field)}
-                  </div>
-                  {field.key === "numberOfPosts" && (
-                    <p className="text-xs text-gray-500">How many recent posts to like</p>
-                  )}
-                  {field.key === "recentPostWithinDays" && (
-                    <p className="text-xs text-gray-500">Only like the most recent post</p>
-                  )}
+                  <div className="relative">{renderConfigField(field)}</div>
                 </div>
               ))}
             </div>

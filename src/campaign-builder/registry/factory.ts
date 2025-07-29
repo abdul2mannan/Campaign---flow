@@ -1,11 +1,9 @@
 import type { Node } from "@xyflow/react";
 import { nodeRegistry } from "./nodeRegistry";
-import { useFlowStore } from "../store/flow-store";
 import "@xyflow/react/dist/style.css";
 
 // Counter to ensure unique IDs even with same timestamp
 let idCounter = 0;
-
 function getNextId(type: string): string {
   // Use timestamp + counter for truly unique ID generation
   const timestamp = Date.now();
@@ -19,14 +17,14 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
   if (!meta) throw new Error(`Unknown node type: ${type}`);
 
   const newId = getNextId(type);
-  
+
   // Set default delay mode based on node category
   let defaultDelayMode = meta.delayModes[0];
   if (meta.category === "condition") {
-    // For conditional nodes, default to "waitUntil" mode
-    defaultDelayMode = "waitUntil";
+    // For conditional nodes, default to "fixed" mode
+    defaultDelayMode = "fixed";
   }
-  
+
   const node = {
     id: newId,
     type,
@@ -39,6 +37,6 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
     },
     ...overrides,
   };
-  
+
   return node;
 }

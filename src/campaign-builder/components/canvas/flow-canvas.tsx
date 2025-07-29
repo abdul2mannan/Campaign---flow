@@ -31,11 +31,7 @@ import {
   setLayoutCallback,
 } from "@/campaign-builder/store/flow-store";
 import { ButtonEdge } from "@/components/button-edge";
-
-// New auto-layout imports
-import { LayoutControls } from "../layout/layout-controls";
 import { useAutoLayout } from "../../hooks/useAutoLayout";
-
 import "@xyflow/react/dist/style.css";
 
 interface FlowCanvasProps {

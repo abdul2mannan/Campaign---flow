@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { X, Search } from "lucide-react";
 import type { Node } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import { nodeRegistry } from "@/campaign-builder/registry/nodeRegistry";
 import { createNode } from "@/campaign-builder/registry/factory";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import { getNodeIcon } from "@/campaign-builder/utils/node-icons";
+import "@xyflow/react/dist/style.css";
 
 interface ActionPaletteProps {
   isOpen: boolean;
@@ -25,10 +25,10 @@ export function ActionPalette({
   position,
 }: ActionPaletteProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   // EXISTING: Keep existing store methods
   const addNode = useFlowStore((s) => s.addNodeAtEnd);
-  
+
   // NEW: Plus context functionality
   const plusContext = useFlowStore((s) => s.plusContext);
   const insertAtEnd = useFlowStore((s) => s.insertAtEnd);
@@ -43,13 +43,10 @@ export function ActionPalette({
 
   // ENHANCED: Context-aware node addition
   const handleAddNode = (nodeType: string) => {
-    if (plusContext?.type === 'node' && plusContext.sourceId) {
-      // NEW: Use insertAtEnd for plus button clicks
+    if (plusContext?.type === "node" && plusContext.sourceId) {
       insertAtEnd(plusContext.sourceId, nodeType);
       clearPlusContext();
-      // Don't call onNodeAdded here - insertAtEnd handles everything
-    } else if (plusContext?.type === 'edge' && plusContext.edgeId) {
-      // NEW: Handle edge insertion - create node and let canvas handle insertion
+    } else if (plusContext?.type === "edge" && plusContext.edgeId) {
       const newNode = createNode(nodeType, {
         position: position || { x: 400, y: 100 },
       });
@@ -60,13 +57,13 @@ export function ActionPalette({
         position: position || { x: 400, y: 100 },
       });
       addNode(newNode);
-      
+
       // Call onNodeAdded for non-plus-button cases
-      onNodeAdded?.({ 
-        id: '', 
-        type: nodeType, 
-        position: { x: 0, y: 0 }, 
-        data: {} 
+      onNodeAdded?.({
+        id: "",
+        type: nodeType,
+        position: { x: 0, y: 0 },
+        data: {},
       } as Node);
     }
 
@@ -102,7 +99,7 @@ export function ActionPalette({
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             {/* NEW: Different title based on context */}
-            {plusContext?.type === 'node' ? 'Add Next Step' : 'Add Step'}
+            {plusContext?.type === "node" ? "Add Next Step" : "Add Step"}
           </h2>
           <button
             onClick={handleClose} // CHANGED: Use enhanced close handler
@@ -154,7 +151,11 @@ export function ActionPalette({
                       </div>
                     )}
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs border ${getCategoryColor(node.category)}`}>
+                  <div
+                    className={`px-2 py-1 rounded-full text-xs border ${getCategoryColor(
+                      node.category
+                    )}`}
+                  >
                     {node.category}
                   </div>
                 </div>

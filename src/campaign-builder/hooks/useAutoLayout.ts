@@ -5,28 +5,20 @@ import type { Node, Edge } from '@xyflow/react';
 import { computeLayout, computeIncrementalLayout, type LayoutOptions } from '../utils/elk-layout';
 
 interface UseAutoLayoutOptions {
-  /** Debounce delay in milliseconds (default: 80ms) */
   debounceMs?: number;
-  /** Default layout direction */
   direction?: 'DOWN' | 'UP' | 'LEFT' | 'RIGHT';
-  /** Whether to fit view after layout */
   fitViewAfterLayout?: boolean;
-  /** Custom spacing options */
   spacing?: {
     nodeNode?: number;
     nodeNodeBetweenLayers?: number;
     edgeNode?: number;
   };
-  /** Callback when layout starts */
   onLayoutStart?: () => void;
-  /** Callback when layout completes */
   onLayoutComplete?: (nodes: Node[], edges: Edge[]) => void;
-  /** Callback when layout fails */
   onLayoutError?: (error: Error) => void;
 }
 
 interface UseAutoLayoutReturn {
-  /** Whether layout is currently computing */
   isLayouting: boolean;
   /** Manually trigger layout computation */
   layout: (options?: Partial<LayoutOptions>) => Promise<void>;
@@ -201,25 +193,5 @@ export const useAutoLayout = (options: UseAutoLayoutOptions = {}): UseAutoLayout
     layout,
     layoutIncremental,
     cancelLayout,
-  };
-};
-
-// Helper hook for layout button component
-export const useLayoutButton = (direction: 'DOWN' | 'UP' | 'LEFT' | 'RIGHT' = 'DOWN') => {
-  const { layout, isLayouting } = useAutoLayout({
-    direction,
-    fitViewAfterLayout: true,
-  });
-
-  const handleClick = useCallback(() => {
-    if (!isLayouting) {
-      layout();
-    }
-  }, [layout, isLayouting]);
-
-  return {
-    onClick: handleClick,
-    disabled: isLayouting,
-    isLayouting,
   };
 };

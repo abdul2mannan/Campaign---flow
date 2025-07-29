@@ -9,7 +9,7 @@ export interface LayoutOptions {
     nodeNodeBetweenLayers?: number;
     edgeNode?: number;
   };
-  algorithm?: "layered" | "force" | "mrtree" | "radial";
+  algorithm?: "layered";
 }
 
 export interface LayoutResult {
@@ -21,6 +21,7 @@ export interface LayoutResult {
 const DEFAULT_ELK_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "DOWN",
+  "elk.eliminate": "true",
   "elk.spacing.nodeNode": "120",
   "elk.spacing.nodeNodeBetweenLayers": "160",
   "elk.spacing.edgeNode": "80",
@@ -49,11 +50,6 @@ const getNodeDimensions = (node: Node) => {
   if (nodeType === "start") {
     width = 200;
     height = 80;
-  }
-
-  // Adjust for node content (text length, etc.)
-  if (nodeData?.config?.message && nodeData.config.message.length > 50) {
-    height += 20; // Add height for longer content
   }
 
   return { width, height };
@@ -185,7 +181,6 @@ export const computeLayout = async (
     return fromElkFormat(layoutedGraph, nodes, edges);
   } catch (error) {
     console.error("ELK layout computation failed:", error);
-
     // Fallback to simple vertical layout
     const fallbackNodes = nodes.map((node, index) => ({
       ...node,
@@ -199,19 +194,7 @@ export const computeLayout = async (
   }
 };
 
-// Utility function for layout direction helpers
-export const getLayoutDirection = (direction: string) => {
-  switch (direction.toUpperCase()) {
-    case "UP":
-      return "UP";
-    case "LEFT":
-      return "LEFT";
-    case "RIGHT":
-      return "RIGHT";
-    default:
-      return "DOWN";
-  }
-};
+
 
 // Incremental layout for performance (only layout affected subgraph)
 export const computeIncrementalLayout = async (
