@@ -1,5 +1,5 @@
 // src/campaign-builder/nodes/LinkedInRequestAcceptedNode.tsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, use } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Clock, MoreVertical, Trash2, GitBranch, Eye } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
@@ -31,10 +31,13 @@ export default function LinkedInRequestAcceptedNode({
   const [tempTimeframe, setTempTimeframe] = useState(
     (config.timeframe || 7).toString()
   );
-
+  const [isBranching, setIsBranching] = useState(false);
   const timeframe = config.timeframe || 7;
   const timeUnit = config.timeUnit || "days";
-  const isBranching = delayMode === "fixed";
+
+  useEffect(() => {
+    setIsBranching(!isBranching);
+  }, [delayMode]);
 
   useEffect(() => {
     setTempTimeframe((config.timeframe || 7).toString());
@@ -96,11 +99,19 @@ export default function LinkedInRequestAcceptedNode({
       {isBranching ? (
         <>
           {/* Yes branch handle for fixed mode */}
-          <Handle
+          <ButtonHandle
             type="source"
             position={Position.Bottom}
-            id="yes"
-            className="opacity-0"
+     
+            onClick={handlePlusClick}
+            showButton={isLastNode && !connectionInProgress}
+          />
+           <ButtonHandle
+            type="source"
+            position={Position.Bottom}
+   
+            onClick={handlePlusClick}
+            showButton={isLastNode && !connectionInProgress}
           />
         </>
       ) : (

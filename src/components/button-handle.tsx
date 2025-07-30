@@ -36,9 +36,11 @@ export const ButtonHandle = ({
         >
           {/* Connection line */}
           <div
-            className={`bg-gray-300 ${vertical ? "h-8 w-[1px]" : "h-[1px] w-8"}`}
+            className={`bg-gray-300 ${
+              vertical ? "h-8 w-[1px]" : "h-[1px] w-8"
+            }`}
           />
-          
+
           {/* Plus button */}
           <div className="nodrag nopan pointer-events-auto">
             {children || (
