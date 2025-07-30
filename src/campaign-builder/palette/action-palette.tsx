@@ -45,7 +45,7 @@ export function ActionPalette({
     } else {
       addNode(nodeType);
     }
-    
+
     if (onNodeAdded) onNodeAdded;
     handleClose();
   };

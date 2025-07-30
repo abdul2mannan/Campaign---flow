@@ -12,6 +12,7 @@ interface UseAutoLayoutOptions {
     nodeNode?: number;
     nodeNodeBetweenLayers?: number;
     edgeNode?: number;
+    edgeNodeBetweenLayers?:number;
   };
   onLayoutStart?: () => void;
   onLayoutComplete?: (nodes: Node[], edges: Edge[]) => void;

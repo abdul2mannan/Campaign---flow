@@ -55,7 +55,6 @@ const canvasStyle: CSSProperties = {
   willChange: "transform",
 };
 
-
 function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   const {
     setNodes,
@@ -71,12 +70,10 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
 
   const reactFlowInstance = useReactFlow();
 
- 
   const [showActionPalette, setShowActionPalette] = useState(false);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
-  
   const { layout, layoutIncremental } = useAutoLayout({
     direction: layoutDirection,
     fitViewAfterLayout: true,
@@ -275,8 +272,8 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
         isOpen={showConfigPanel}
         onSave={handleSaveConfiguration}
         onClose={() => {
-          setShowConfigPanel(false);
           setSelectedNode(null);
+          setShowConfigPanel(false);
         }}
       />
     </div>

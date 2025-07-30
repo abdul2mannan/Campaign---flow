@@ -26,7 +26,6 @@ interface PlusContext {
   targetId?: string;
   sourceNodeId?: string;
   targetNodeId?: string;
-  /** Cursor / click position where the palette was opened */
   position?: { x: number; y: number };
 }
 
@@ -73,8 +72,8 @@ export const setLayoutCallback = (cb: typeof layoutCallback) => {
 };
 
 const analyzeNodeConnections = (nodeId: string, edges: Edge[]) => {
-  const incoming = edges.filter((e) => e.target === nodeId);
-  const outgoing = edges.filter((e) => e.source === nodeId);
+  const incoming = edges.filter((e) => e.target === nodeId); //target
+  const outgoing = edges.filter((e) => e.source === nodeId); //source
   return {
     incoming,
     outgoing,

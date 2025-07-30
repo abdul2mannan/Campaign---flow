@@ -1,7 +1,7 @@
 import type { Node } from "@xyflow/react";
 import { nodeRegistry } from "./nodeRegistry";
 import "@xyflow/react/dist/style.css";
-import {generateNodeId} from "@/campaign-builder/utils/helpers";
+import { generateNodeId } from "@/campaign-builder/utils/helpers";
 
 function getNodeId(type: string): string {
   return generateNodeId(type);
@@ -21,7 +21,7 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
   const node = {
     id: newId,
     type,
-    position: overrides.position || { x: 0, y: 0 },
+    position: overrides.position ? overrides.position : { x: 0, y: 0 },
     data: {
       meta,
       config: {},
@@ -30,6 +30,6 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
     },
     ...overrides,
   };
-  
+
   return node;
 }

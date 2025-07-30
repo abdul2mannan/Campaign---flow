@@ -21,38 +21,18 @@ export interface LayoutResult {
 const DEFAULT_ELK_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "DOWN",
+  "elk.edgeRouting": "ORTHOGONAL",
+  "elk.layered.unnecessaryBendpoints": "true",
   "elk.eliminate": "true",
   "elk.spacing.nodeNode": "200",
-  "elk.spacing.nodeNodeBetweenLayers": "200",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "200",
   "elk.spacing.edgeNode": "120",
   "elk.layered.spacing.edgeNodeBetweenLayers": "120",
+  "elk.layered.spacing.edgeEdgeBetweenLayers": "120",
   "elk.portConstraints": "FIXED_ORDER",
   "elk.layered.mergeEdges": "true",
   "elk.layered.thoroughness": "7",
-  "elk.layered.unnecessaryBendpoints": "false",
   "elk.layered.nodePlacement.favorStraightEdges": "true",
-};
-
-// Node size estimation for different node types
-const getNodeDimensions = (node: Node) => {
-  const nodeData = node.data as any;
-  const nodeType = node.type || "default";
-
-  // Base dimensions
-  let width = 280; // Default width for most campaign nodes
-  let height = 120; // Default height for action nodes
-
-  // Adjust based on node type
-  if (nodeData?.meta?.category === "condition") {
-    height = 140; // Conditional nodes are taller
-  }
-
-  if (nodeType === "start") {
-    width = 200;
-    height = 80;
-  }
-
-  return { width, height };
 };
 
 // Convert React Flow nodes/edges to ELK format
@@ -68,7 +48,7 @@ const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
       elkOptions["elk.spacing.nodeNode"] = options.spacing.nodeNode.toString();
     }
     if (options.spacing.nodeNodeBetweenLayers) {
-      elkOptions["elk.spacing.nodeNodeBetweenLayers"] =
+      elkOptions["elk.layered.spacing.nodeNodeBetweenLayers"] =
         options.spacing.nodeNodeBetweenLayers.toString();
     }
     if (options.spacing.edgeNode) {
@@ -78,12 +58,8 @@ const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
 
   // Convert nodes to ELK format
   const elkNodes = nodes.map((node) => {
-    const dimensions = getNodeDimensions(node);
-
     return {
       id: node.id,
-      width: dimensions.width,
-      height: dimensions.height,
     };
   });
 
@@ -92,12 +68,6 @@ const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
     id: edge.id,
     sources: [edge.source],
     targets: [edge.target],
-    // Add routing options for conditional edges
-    layoutOptions: edge.data?.branch
-      ? {
-          "elk.edge.type": edge.data.branch === "yes" ? "DIRECTED" : "DIRECTED",
-        }
-      : undefined,
   }));
 
   return {
@@ -163,17 +133,7 @@ export const computeLayout = async (
     // Convert back to React Flow format
     return fromElkFormat(layoutedGraph, nodes, edges);
   } catch (error) {
-    console.error("ELK layout computation failed:", error);
-    // Fallback to simple vertical layout
-    const fallbackNodes = nodes.map((node, index) => ({
-      ...node,
-      position: {
-        x: 400,
-        y: 100 + index * 200,
-      },
-    }));
-
-    return { nodes: fallbackNodes, edges };
+    throw new Error("Failed to auto layout");
   }
 };
 
@@ -184,7 +144,5 @@ export const computeIncrementalLayout = async (
   changedNodeIds: string[],
   options: LayoutOptions = {}
 ): Promise<LayoutResult> => {
-  // For now, do full layout - incremental can be optimized later
-  // TODO: Implement subgraph extraction and partial layout
   return computeLayout(nodes, edges, options);
 };

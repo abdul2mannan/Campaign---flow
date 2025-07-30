@@ -161,7 +161,10 @@ export function ConfigPanel({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => {
+              onSave?.();
+              onClose();
+            }}
             className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-white/50 rounded-lg"
           >
             <X className="w-5 h-5" />

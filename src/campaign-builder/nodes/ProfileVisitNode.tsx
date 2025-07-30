@@ -8,6 +8,8 @@ import { getNodeIconForCanvas } from "@/campaign-builder/utils/node-icons";
 import { ButtonHandle } from "@/components/button-handle";
 import { ConnectionState, useConnection } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+
+
 const selector = (connection: ConnectionState) => {
   return connection.inProgress;
 };
@@ -77,8 +79,8 @@ export default function ProfileVisitNode({
   };
 
   return (
-    <div className="relative w-72 z-10">
-      <Handle type="target" position={Position.Top} className="opacity-0" />
+    <div className="relative w-65 z-10">
+      <Handle type="target" position={Position.Top } className="opacity-0"  />
       
       {/* Enhanced ButtonHandle with improved styling */}
       <ButtonHandle
@@ -131,7 +133,6 @@ export default function ProfileVisitNode({
                   className="hover:underline underline-offset-2 flex items-center gap-1"
                 >
                   <span>Wait for {delay} min</span>
-                  <span className="text-gray-400">✎</span>
                 </button>
               )
             ) : (
