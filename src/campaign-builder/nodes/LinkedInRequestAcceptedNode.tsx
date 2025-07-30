@@ -1,11 +1,18 @@
 // src/campaign-builder/nodes/LinkedInRequestAcceptedNode.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Clock, MoreVertical, Trash2, GitBranch, Eye } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { LinkedInRequestAcceptedNode as LinkedInRequestAcceptedNodeType } from "@/campaign-builder/types/flow-nodes";
 import { getNodeIconForCanvas } from "@/campaign-builder/utils/node-icons";
 import "@xyflow/react/dist/style.css";
+import { ButtonHandle } from "@/components/button-handle";
+import { ConnectionState, useConnection } from "@xyflow/react";
+
+const selector = (connection: ConnectionState) => {
+  return connection.inProgress;
+};
+
 export default function LinkedInRequestAcceptedNode({
   data,
   id,
@@ -13,13 +20,17 @@ export default function LinkedInRequestAcceptedNode({
 }: NodeProps<LinkedInRequestAcceptedNodeType>) {
   const updateNode = useFlowStore((s) => s.updateNode);
   const deleteNode = useFlowStore((s) => s.removeNode);
+  const setPlusContext = useFlowStore((s) => s.setPlusContext);
   const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
   const nodeData = (currentNode?.data || data) as any;
+  const connectionInProgress = useConnection(selector);
   const { meta, config = {}, delayMode = "waitUntil" } = nodeData;
-
+  const edges = useFlowStore((s) => s.edges);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingTimeframe, setEditingTimeframe] = useState(false);
-  const [tempTimeframe, setTempTimeframe] = useState((config.timeframe || 7).toString());
+  const [tempTimeframe, setTempTimeframe] = useState(
+    (config.timeframe || 7).toString()
+  );
 
   const timeframe = config.timeframe || 7;
   const timeUnit = config.timeUnit || "days";
@@ -29,8 +40,10 @@ export default function LinkedInRequestAcceptedNode({
     setTempTimeframe((config.timeframe || 7).toString());
   }, [config.timeframe, delayMode]);
 
-  // Use centralized icon utility
-  const nodeIcon = getNodeIconForCanvas("linkedin_request_accepted");
+  // Check if this is the last node (no outgoing edges)
+  const isLastNode = useMemo(() => {
+    return !edges.some((edge) => edge.source === id);
+  }, [edges, id]);
 
   const topIcon = isBranching ? (
     <Clock className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
@@ -38,9 +51,19 @@ export default function LinkedInRequestAcceptedNode({
     <Eye className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
   );
 
+  // Use centralized icon utility
+  const nodeIcon = getNodeIconForCanvas("linkedin_request_accepted");
+
   const handleDelete = () => {
     deleteNode?.(id);
     setMenuOpen(false);
+  };
+
+  const handlePlusClick = () => {
+    setPlusContext({
+      type: "node",
+      sourceId: id,
+    });
   };
 
   const handleSwitchToFixed = () => {
@@ -69,39 +92,34 @@ export default function LinkedInRequestAcceptedNode({
   return (
     <div className="relative w-72 z-10">
       <Handle type="target" position={Position.Top} className="opacity-0" />
-      
+
       {isBranching ? (
         <>
           {/* Yes branch handle for fixed mode */}
-          <Handle 
-            type="source" 
-            position={Position.Bottom} 
+          <Handle
+            type="source"
+            position={Position.Bottom}
             id="yes"
-            style={{ left: '30%' }}
-            className="opacity-0" 
-          />
-          
-          {/* No branch handle for fixed mode */}
-          <Handle 
-            type="source" 
-            position={Position.Bottom} 
-            id="no"
-            style={{ left: '70%' }}
-            className="opacity-0" 
+            className="opacity-0"
           />
         </>
       ) : (
         /* Single output handle for waitUntil mode */
-        <Handle 
-          type="source" 
-          position={Position.Bottom} 
-          className="opacity-0" 
+        <ButtonHandle
+          type="source"
+          position={Position.Bottom}
+          onClick={handlePlusClick}
+          showButton={isLastNode && !connectionInProgress}
         />
       )}
 
-      <div className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
-        selected ? 'border-blue-500 bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'
-      }`}>
+      <div
+        className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
+          selected
+            ? "border-blue-500 bg-blue-50 shadow-lg"
+            : "border-gray-200 bg-white"
+        }`}
+      >
         {/* Top label + actions */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
           <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
@@ -143,7 +161,9 @@ export default function LinkedInRequestAcceptedNode({
                   }}
                   className="hover:underline underline-offset-2 flex items-center gap-1"
                 >
-                  <span>Check within {timeframe} {timeUnit}</span>
+                  <span>
+                    Check within {timeframe} {timeUnit}
+                  </span>
                 </button>
               )
             ) : (
@@ -166,7 +186,10 @@ export default function LinkedInRequestAcceptedNode({
                     onClick={handleSwitchToFixed}
                     className="flex items-center gap-3 w-full px-4 py-3 text-left text-gray-900 hover:bg-gray-50 transition"
                   >
-                    <Clock className="w-4 h-4 text-indigo-500" strokeWidth={2} />
+                    <Clock
+                      className="w-4 h-4 text-indigo-500"
+                      strokeWidth={2}
+                    />
                     <span className="text-[13px] font-medium">
                       Switch to "Within timeframe" mode
                     </span>
@@ -201,11 +224,11 @@ export default function LinkedInRequestAcceptedNode({
 
         {/* Main content */}
         <div className="flex items-start gap-3 px-4 pb-3">
-          <div className="bg-yellow-100 rounded-full p-2">
-            {nodeIcon}
-          </div>
+          <div className="bg-yellow-100 rounded-full p-2">{nodeIcon}</div>
           <div className="flex flex-col flex-1">
-            <div className="font-semibold text-gray-900">{meta.title}</div>
+            <div className="text-xs font-semibold text-gray-900">
+              {meta.title}
+            </div>
             {meta.description && (
               <div className="text-xs text-gray-500 mt-0.5">
                 {meta.description}
@@ -213,24 +236,6 @@ export default function LinkedInRequestAcceptedNode({
             )}
           </div>
         </div>
-
-        {/* Branch indicators - only show for fixed mode */}
-        {isBranching && (
-          <div className="flex items-center justify-between px-4 pb-3 pt-1">
-            <div className="flex items-center gap-2 text-xs">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-green-600 font-medium">Yes</span>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <GitBranch className="w-3 h-3" />
-              <span>Condition</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span className="text-red-600 font-medium">No</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

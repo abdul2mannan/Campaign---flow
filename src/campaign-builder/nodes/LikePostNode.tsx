@@ -1,10 +1,16 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Zap, Clock, MoreVertical, Trash2 } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { LikePostNode as LikePostNodeType } from "@/campaign-builder/types/flow-nodes";
 import { getNodeIconForCanvas } from "@/campaign-builder/utils/node-icons";
+import { ButtonHandle } from "@/components/button-handle";
+import { ConnectionState, useConnection } from "@xyflow/react";
+
+const selector = (connection: ConnectionState) => {
+  return connection.inProgress;
+};
 
 export default function LikePostNode({
   data,
@@ -13,18 +19,34 @@ export default function LikePostNode({
 }: NodeProps<LikePostNodeType>) {
   const updateNode = useFlowStore((s) => s.updateNode);
   const deleteNode = useFlowStore((s) => s.removeNode);
+  const setPlusContext = useFlowStore((s) => s.setPlusContext);
+
   const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
   const nodeData = (currentNode?.data || data) as any;
   const { meta, config = {}, delayMode = "instant" } = nodeData;
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingDelay, setEditingDelay] = useState(false);
   const [tempDelay, setTempDelay] = useState(
     (config.delayMinutes || 1).toString()
   );
+  const connectionInProgress = useConnection(selector);
+  const edges = useFlowStore((s) => s.edges);
 
   const delay = config.delayMinutes || 1;
-  const isFixed = useMemo(() => delayMode === "fixed" && delay > 0, [delayMode, delay]);
+
+  useEffect(() => {
+    setTempDelay(delay.toString());
+  }, [delay, delayMode]);
+
+  // Check if this is the last node (no outgoing edges)
+  const isLastNode = useMemo(() => {
+    return !edges.some((edge) => edge.source === id);
+  }, [edges, id]);
+
+  const isFixed = useMemo(
+    () => delayMode === "fixed" && delay > 0,
+    [delayMode, delay]
+  );
   const topIcon = isFixed ? (
     <Clock className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
   ) : (
@@ -47,6 +69,18 @@ export default function LikePostNode({
     setMenuOpen(false);
   };
 
+  const handleDelete = () => {
+    deleteNode?.(id);
+    setMenuOpen(false);
+  };
+
+  const handlePlusClick = () => {
+    setPlusContext({
+      type: "node",
+      sourceId: id,
+    });
+  };
+
   const handleDelayToggle = () => {
     updateNode(id, (node) => {
       if (typeof node.data === "object" && node.data !== null) {
@@ -58,19 +92,22 @@ export default function LikePostNode({
     setMenuOpen(false);
   };
 
-  const handleDelete = () => {
-    deleteNode?.(id);
-    setMenuOpen(false);
-  };
-
   return (
     <div className="relative w-72 z-10">
       <Handle type="target" position={Position.Top} className="opacity-0" />
-      <Handle type="source" position={Position.Bottom} className="opacity-0" />
-
-      <div className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
-        selected ? 'border-blue-500 bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'
-      }`}>
+      <ButtonHandle
+        type="source"
+        position={Position.Bottom}
+        onClick={handlePlusClick}
+        showButton={isLastNode && !connectionInProgress}
+      />
+      <div
+        className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
+          selected
+            ? "border-blue-500 bg-blue-50 shadow-lg"
+            : "border-gray-200 bg-white"
+        }`}
+      >
         {/* Top label + actions */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
           <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
@@ -86,8 +123,14 @@ export default function LikePostNode({
                     const value = parseInt(tempDelay, 10);
                     if (!isNaN(value) && value > 0) {
                       updateNode(id, (node) => {
-                        if (typeof node.data === "object" && node.data !== null) {
-                          const d = node.data as { config: any; delayMode: string };
+                        if (
+                          typeof node.data === "object" &&
+                          node.data !== null
+                        ) {
+                          const d = node.data as {
+                            config: any;
+                            delayMode: string;
+                          };
                           if (!d.config) d.config = {};
                           d.config.delayMinutes = value;
                         }
@@ -100,8 +143,14 @@ export default function LikePostNode({
                       const value = parseInt(tempDelay, 10);
                       if (!isNaN(value) && value > 0) {
                         updateNode(id, (node) => {
-                          if (typeof node.data === "object" && node.data !== null) {
-                            const d = node.data as { config: any; delayMode: string };
+                          if (
+                            typeof node.data === "object" &&
+                            node.data !== null
+                          ) {
+                            const d = node.data as {
+                              config: any;
+                              delayMode: string;
+                            };
                             if (!d.config) d.config = {};
                             d.config.delayMinutes = value;
                           }
@@ -180,11 +229,11 @@ export default function LikePostNode({
 
         {/* Main content */}
         <div className="flex items-start gap-3 px-4 pb-3">
-          <div className="bg-red-100 rounded-full p-2">
-            {nodeIcon}
-          </div>
+          <div className="bg-red-100 rounded-full p-2">{nodeIcon}</div>
           <div className="flex flex-col">
-            <div className="font-semibold text-gray-900">{meta.title}</div>
+            <div className="text-xs font-semibold text-gray-900">
+              {meta.title}
+            </div>
             {meta.description && (
               <div className="text-xs text-gray-500 mt-0.5">
                 {meta.description}

@@ -9,7 +9,6 @@ import { ButtonHandle } from "@/components/button-handle";
 import { ConnectionState, useConnection } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-
 const selector = (connection: ConnectionState) => {
   return connection.inProgress;
 };
@@ -19,17 +18,20 @@ export default function ProfileVisitNode({
   id,
   selected,
 }: NodeProps<ProfileVisitNodeType>) {
-  const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
-  const nodeData = (currentNode?.data || data) as any;
-  const { meta, config = {}, delayMode = "instant" } = nodeData;
-  const delay = config.delayMinutes ?? 0;
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [editingDelay, setEditingDelay] = useState(false);
-  const [tempDelay, setTempDelay] = useState(delay.toString());
   const updateNode = useFlowStore((s) => s.updateNode);
   const deleteNode = useFlowStore((s) => s.removeNode);
   const setPlusContext = useFlowStore((s) => s.setPlusContext);
 
+  const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
+  const nodeData = (currentNode?.data || data) as any;
+  const { meta, config = {}, delayMode = "instant" } = nodeData;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingDelay, setEditingDelay] = useState(false);
+  const [tempDelay, setTempDelay] = useState(
+    (config.delayMinutes || 1).toString()
+  );
+
+  const delay = config.delayMinutes ?? 0;
   const connectionInProgress = useConnection(selector);
   const edges = useFlowStore((s) => s.edges);
 
@@ -42,7 +44,10 @@ export default function ProfileVisitNode({
     return !edges.some((edge) => edge.source === id);
   }, [edges, id]);
 
-  const isFixed = useMemo(() => delayMode === "fixed" && delay > 0, [delayMode, delay]);
+  const isFixed = useMemo(
+    () => delayMode === "fixed" && delay > 0,
+    [delayMode, delay]
+  );
   const topIcon = isFixed ? (
     <Clock className="w-3.5 h-3.5 text-blue-500" strokeWidth={2} />
   ) : (
@@ -78,10 +83,22 @@ export default function ProfileVisitNode({
     });
   };
 
+    const handleDelayToggle = () => {
+    updateNode(id, (node) => {
+      if (typeof node.data === "object" && node.data !== null) {
+        const d = node.data as { config: any; delayMode: string };
+        d.delayMode = "instant";
+        d.config.delayMinutes = 0;
+      }
+    });
+    setMenuOpen(false);
+  };
+
+
   return (
-    <div className="relative w-65 z-10">
-      <Handle type="target" position={Position.Top } className="opacity-0"  />
-      
+    <div className="relative w-72 z-10">
+      <Handle type="target" position={Position.Top} className="opacity-0" />
+
       {/* Enhanced ButtonHandle with improved styling */}
       <ButtonHandle
         type="source"
@@ -90,9 +107,13 @@ export default function ProfileVisitNode({
         showButton={isLastNode && !connectionInProgress}
       />
 
-      <div className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
-        selected ? 'border-blue-500 bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'
-      }`}>
+      <div
+        className={`relative w-full rounded-xl border shadow-sm overflow-visible ${
+          selected
+            ? "border-blue-500 bg-blue-50 shadow-lg"
+            : "border-gray-200 bg-white"
+        }`}
+      >
         {/* Top label + actions */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
           <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
@@ -108,31 +129,52 @@ export default function ProfileVisitNode({
                     const value = parseInt(tempDelay, 10);
                     if (!isNaN(value) && value > 0) {
                       updateNode(id, (node) => {
-                        const d = node.data as {
-                          config: any;
-                          delayMode: string;
-                        };
-                        d.config.delayMinutes = value;
+                        if (
+                          typeof node.data === "object" &&
+                          node.data !== null
+                        ) {
+                          const d = node.data as {
+                            config: any;
+                            delayMode: string;
+                          };
+                          if (!d.config) d.config = {};
+                          d.config.delayMinutes = value;
+                        }
                       });
                     }
                     setEditingDelay(false);
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter")
-                      (e.target as HTMLInputElement).blur();
+                    if (e.key === "Enter") {
+                      const value = parseInt(tempDelay, 10);
+                      if (!isNaN(value) && value > 0) {
+                        updateNode(id, (node) => {
+                          if (
+                            typeof node.data === "object" &&
+                            node.data !== null
+                          ) {
+                            const d = node.data as {
+                              config: any;
+                              delayMode: string;
+                            };
+                            if (!d.config) d.config = {};
+                            d.config.delayMinutes = value;
+                          }
+                        });
+                      }
+                      setEditingDelay(false);
+                    }
                   }}
                   className="bg-transparent border border-indigo-300 rounded px-1 py-0.5 text-[11px] w-14 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   autoFocus
                 />
               ) : (
                 <button
-                  onClick={() => {
-                    setTempDelay(delay.toString());
-                    setEditingDelay(true);
-                  }}
+                  onClick={() => setEditingDelay(true)}
                   className="hover:underline underline-offset-2 flex items-center gap-1"
                 >
                   <span>Wait for {delay} min</span>
+                  <span className="text-gray-400"></span>
                 </button>
               )
             ) : (
@@ -167,17 +209,7 @@ export default function ProfileVisitNode({
 
                 {delayMode === "fixed" && (
                   <button
-                    onClick={() => {
-                      updateNode(id, (node) => {
-                        const d = node.data as {
-                          config: any;
-                          delayMode: string;
-                        };
-                        d.delayMode = "instant";
-                        d.config.delayMinutes = 0;
-                      });
-                      setMenuOpen(false);
-                    }}
+                    onClick={handleDelayToggle}
                     className="flex items-center gap-3 w-full px-4 py-3 text-left text-gray-900 hover:bg-gray-50 transition"
                   >
                     <Zap className="w-4 h-4 text-blue-500" strokeWidth={2} />
@@ -203,11 +235,11 @@ export default function ProfileVisitNode({
 
         {/* Main content */}
         <div className="flex items-start gap-3 px-4 pb-3">
-          <div className="bg-indigo-100 rounded-full p-2">
-            {nodeIcon}
-          </div>
+          <div className="bg-indigo-100 rounded-full p-2">{nodeIcon}</div>
           <div className="flex flex-col">
-            <div className="font-semibold text-gray-900">{meta.title}</div>
+            <div className="text-xs font-semibold text-gray-900">
+              {meta.title}
+            </div>
             {meta.description && (
               <div className="text-xs text-gray-500 mt-0.5">
                 {meta.description}
