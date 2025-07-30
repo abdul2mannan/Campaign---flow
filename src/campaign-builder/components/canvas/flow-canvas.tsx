@@ -76,7 +76,7 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
 
   const { layout, layoutIncremental } = useAutoLayout({
     direction: layoutDirection,
-    fitViewAfterLayout: true,
+    fitViewAfterLayout: false,
     onLayoutStart: () => setIsLayouting(true),
     onLayoutComplete: (n, e) => {
       applyLayoutResult(n, e);
