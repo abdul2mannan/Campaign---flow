@@ -4,6 +4,8 @@ import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
 import LikePostNode from "@/cb/nodes/LikePostNode";
 import SendInviteNode from "@/cb/nodes/SendInviteNode";
 import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
+import MergeNode from "@/campaign-builder/nodes/MergeNode";
+
 import "@xyflow/react/dist/style.css";
 /** Generic node component type */
 export type NodeComponent = React.FC<NodeProps<Node>>;
@@ -127,4 +129,15 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     styleKey: "condition-linkedin-",
     component: LinkedInRequestAcceptedNode as NodeComponent,
   },
+  merge: {
+  type: "merge",
+  title: "Merge",
+  description: "Merge multiple branches into a single path",
+  category: "action",
+  inputs: 2, // Multiple inputs
+  outputs: 1,
+  delayModes: ["instant"],
+  styleKey: "merge-",
+  component: MergeNode as NodeComponent,
+},
 }

@@ -50,3 +50,12 @@ export type LinkedInRequestAcceptedData = {
 };
 
 export type LinkedInRequestAcceptedNode = Node<LinkedInRequestAcceptedData, "linkedin_request_accepted">;
+
+export type MergeData = {
+  meta: NodeMetaCore;
+  config: {};
+  delayMode: "instant";
+  [key: string]: unknown;          // satisfies Record<string, unknown>
+};
+
+export type MergeNode = Node<MergeData, "merge">;

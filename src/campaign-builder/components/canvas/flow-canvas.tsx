@@ -19,6 +19,7 @@ import {
   type OnConnect,
 } from "@xyflow/react";
 import { Plus, Copy, Loader2 } from "lucide-react";
+import MergeNode from "@/campaign-builder/nodes/MergeNode";
 
 import ProfileVisitNode from "@/campaign-builder/nodes/ProfileVisitNode";
 import LikePostNode from "@/campaign-builder/nodes/LikePostNode";
@@ -44,6 +45,7 @@ const nodeTypes = {
   like_post: LikePostNode,
   send_invite: SendInviteNode,
   linkedin_request_accepted: LinkedInRequestAcceptedNode,
+  merge: MergeNode,
 };
 
 const edgeTypes = {
