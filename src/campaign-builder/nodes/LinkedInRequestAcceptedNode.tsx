@@ -1,6 +1,11 @@
 // src/campaign-builder/nodes/LinkedInRequestAcceptedNode.tsx
 import React, { useState, useEffect, useMemo, use } from "react";
-import { Handle, Position, type NodeProps, useUpdateNodeInternals } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  type NodeProps,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 import { Clock, MoreVertical, Trash2, GitBranch, Eye } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { LinkedInRequestAcceptedNode as LinkedInRequestAcceptedNodeType } from "@/campaign-builder/types/flow-nodes";
@@ -36,7 +41,7 @@ export default function LinkedInRequestAcceptedNode({
   const timeframe = config.timeframe || 7;
   const timeUnit = config.timeUnit || "days";
   const handleDelayModeChange = useFlowStore((s) => s.handleDelayModeChange);
-  
+
   useEffect(() => {
     setIsBranching(delayMode === "fixed");
     // Update node internals when handles change
@@ -104,19 +109,17 @@ export default function LinkedInRequestAcceptedNode({
       {isBranching ? (
         <>
           {/* Yes branch handle for fixed mode */}
-          <ButtonHandle
+          <Handle
             type="source"
             position={Position.Bottom}
             id="yes"
-            onClick={handlePlusClick}
-            showButton={isLastNode && !connectionInProgress}
+            className="opacity-0"
           />
-          <ButtonHandle
+          <Handle
             type="source"
             id="no"
             position={Position.Bottom}
-            onClick={handlePlusClick}
-            showButton={isLastNode && !connectionInProgress}
+            className="opacity-0"
           />
         </>
       ) : (
