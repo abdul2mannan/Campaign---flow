@@ -36,6 +36,9 @@ export function ConfigPanel({
 
   if (!isOpen || !currentNode) return null;
 
+  // Don't show config panel for merge nodes
+  if (currentNode.type === "merge") return null;
+
   const { meta, config = {}, delayMode = "instant" } = currentNode.data as any;
 
   // Remove delay‑related fields so they never render here

@@ -31,11 +31,14 @@ export function ActionPalette({
   const clearPlusContext = useFlowStore((s) => s.clearPlusContext);
 
   /* Search filter */
-  const filteredNodes = Object.values(nodeRegistry).filter((node) =>
-    (node.title + node.description)
+  const filteredNodes = Object.values(nodeRegistry).filter((node) => {
+    // Filter out merge nodes from the action palette
+    if (node.type === "merge") return false;
+    
+    return (node.title + node.description)
       .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
+      .includes(searchTerm.toLowerCase());
+  });
 
   const handleAddNode = (nodeType: string) => {
     if (plusContext?.type === "node" && plusContext.sourceId) {

@@ -31,6 +31,68 @@ interface PlusContext {
 
 export type LayoutTrigger = { type: "auto"; affectedNodeIds?: string[] };
 
+const createMergeNodeForConditional = (
+  conditionalNodeId: string,
+  nodes: any[],
+  edges: any[]
+) => {
+  const conditionalNode = nodes.find((n) => n.id === conditionalNodeId);
+  if (!conditionalNode) return null;
+
+  // Check if this conditional node already has a merge node
+  const existingMergeConnection = edges.find(
+    (e) =>
+      e.source === conditionalNodeId &&
+      nodes.find((n) => n.id === e.target && n.type === "merge")
+  );
+
+  if (existingMergeConnection) return null; // Already has a merge node
+
+  // Check if this is a branchable condition node
+  const isConditionalNode =
+    conditionalNode.data?.meta?.category === "condition" ||
+    conditionalNode.data?.meta?.branchable === true;
+
+  if (!isConditionalNode) return null;
+
+  // IMPORTANT: Only create merge node if delayMode is "fixed" (branches)
+  const delayMode = conditionalNode.data?.meta?.delayMode;
+  if (delayMode !== "fixed") {
+    return null; // Don't create merge for "waitUntil" mode
+  }
+
+  // Create merge node positioned below the conditional node
+  const mergeNode = createNode("merge", {
+    position: {
+      x: conditionalNode.position.x,
+      y: conditionalNode.position.y + 200, // Position below
+    },
+  });
+
+  // Create edges from conditional node's "yes" and "no" outputs to merge node
+  const yesEdge = {
+    id: `${conditionalNodeId}-yes-${mergeNode.id}`,
+    source: conditionalNodeId,
+    target: mergeNode.id,
+    sourceHandle: "yes",
+    type: "buttonedge",
+    data: { label: "Yes" },
+  };
+
+  const noEdge = {
+    id: `${conditionalNodeId}-no-${mergeNode.id}`,
+    source: conditionalNodeId,
+    target: mergeNode.id,
+    sourceHandle: "no",
+    type: "buttonedge",
+    data: { label: "No" },
+  };
+
+  return {
+    mergeNode,
+    edges: [yesEdge, noEdge],
+  };
+};
 interface FlowState extends LayoutState {
   nodes: Node[];
   edges: Edge[];
@@ -64,6 +126,9 @@ interface FlowState extends LayoutState {
   /* Insertions that rely on ELK */
   insertAtEnd(parentId: string, nodeType: string): void;
   insertBetweenNodes(edgeId: string, nodeType: string): void;
+
+  createAutoMergeForConditional: (conditionalNodeId: string) => void;
+  handleDelayModeChange: (nodeId: string, newDelayMode: string) => void; // Add this
 }
 
 let layoutCallback: ((t: LayoutTrigger) => void) | null = null;
@@ -343,6 +408,93 @@ export const useFlowStore = create<FlowState>()(
           type: "auto",
           affectedNodeIds: [e.source, newNode.id, e.target],
         });
+      }),
+
+    createAutoMergeForConditional: (conditionalNodeId) =>
+      set((d) => {
+        const result = createMergeNodeForConditional(
+          conditionalNodeId,
+          d.nodes,
+          d.edges
+        );
+        if (!result) return;
+
+        const { mergeNode, edges } = result;
+
+        // Add the merge node
+        d.nodes.push(markNode(mergeNode, "entering") as any);
+
+        // Add the connecting edges
+        d.edges.push(...edges);
+
+        // Trigger layout
+        setTimeout(() => {
+          set((dd) => {
+            const idx = dd.nodes.findIndex((n) => n.id === mergeNode.id);
+            if (idx !== -1) {
+              dd.nodes[idx].data = {
+                ...dd.nodes[idx].data,
+                animationState: "stable",
+              };
+            }
+          });
+        }, ANIMATION_MS);
+
+        get().triggerLayout({
+          type: "auto",
+          affectedNodeIds: [conditionalNodeId, mergeNode.id],
+        });
+      }),
+
+    // Add this new action to handle delayMode changes
+    handleDelayModeChange: (nodeId, newDelayMode) =>
+      set((d) => {
+        const node = d.nodes.find((n) => n.id === nodeId);
+        if (!node) return;
+
+        // Update the node's delayMode
+        if (node.data) {
+          (node.data.meta as any).delayMode = newDelayMode;
+        }
+
+        // Check if this is a conditional node
+        const isConditionalNode =
+          (node.data?.meta as any)?.category === "condition" ||
+          node.data?.branchable === true;
+        if (!isConditionalNode) return;
+
+        if (newDelayMode === "fixed") {
+          // Create merge node if switching to fixed mode
+          setTimeout(() => {
+            get().createAutoMergeForConditional(nodeId);
+          }, 100);
+        } else if (newDelayMode === "waitUntil") {
+          // Remove merge node and its connections if switching to waitUntil mode
+          const connectedMergeNodes = d.edges
+            .filter((e) => e.source === nodeId)
+            .map((e) =>
+              d.nodes.find((n) => n.id === e.target && n.type === "merge")
+            )
+            .filter(Boolean);
+
+          connectedMergeNodes.forEach((mergeNode) => {
+            if (mergeNode) {
+              // Remove merge node and all its connections
+              d.nodes = d.nodes.filter((n) => n.id !== mergeNode.id);
+              d.edges = d.edges.filter(
+                (e) =>
+                  e.source !== mergeNode.id &&
+                  e.target !== mergeNode.id &&
+                  e.source !== nodeId // Remove the branching edges from conditional node
+              );
+            }
+          });
+
+          get().triggerLayout({
+            type: "auto",
+            affectedNodeIds: [nodeId],
+          });
+        }
       }),
   }))
 );

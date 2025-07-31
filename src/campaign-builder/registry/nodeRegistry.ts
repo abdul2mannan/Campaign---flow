@@ -84,7 +84,7 @@ export const nodeRegistry: Record<string, NodeMeta> = {
       {
         key: "recentPostWithinDays",
         label: "Recent Post Within (days)",
-        type: "number", 
+        type: "number",
         required: true,
         default: 30,
       },
@@ -117,7 +117,7 @@ export const nodeRegistry: Record<string, NodeMeta> = {
       },
     ],
   },
- linkedin_request_accepted: {
+  linkedin_request_accepted: {
     type: "linkedin_request_accepted",
     title: "Is LinkedIn Request Accepted?",
     description: "Check if connection request was accepted",
@@ -130,14 +130,14 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     component: LinkedInRequestAcceptedNode as NodeComponent,
   },
   merge: {
-  type: "merge",
-  title: "Merge",
-  description: "Merge multiple branches into a single path",
-  category: "action",
-  inputs: 2, // Multiple inputs
-  outputs: 1,
-  delayModes: ["instant"],
-  styleKey: "merge-",
-  component: MergeNode as NodeComponent,
-},
-}
+    type: "merge",
+    title: "Merge",
+    description: "Merge multiple branches into a single path",
+    category: "action",
+    inputs: 2, // Multiple inputs
+    outputs: 1,
+    delayModes: ["instant"],
+    styleKey: "merge-",
+    component: MergeNode as NodeComponent,
+  },
+};

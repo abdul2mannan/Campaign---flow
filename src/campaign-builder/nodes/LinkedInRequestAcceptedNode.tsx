@@ -1,6 +1,6 @@
 // src/campaign-builder/nodes/LinkedInRequestAcceptedNode.tsx
 import React, { useState, useEffect, useMemo, use } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps, useUpdateNodeInternals } from "@xyflow/react";
 import { Clock, MoreVertical, Trash2, GitBranch, Eye } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { LinkedInRequestAcceptedNode as LinkedInRequestAcceptedNodeType } from "@/campaign-builder/types/flow-nodes";
@@ -24,6 +24,7 @@ export default function LinkedInRequestAcceptedNode({
   const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
   const nodeData = (currentNode?.data || data) as any;
   const connectionInProgress = useConnection(selector);
+  const updateNodeInternals = useUpdateNodeInternals();
   const { meta, config = {}, delayMode = "waitUntil" } = nodeData;
   const edges = useFlowStore((s) => s.edges);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -31,13 +32,16 @@ export default function LinkedInRequestAcceptedNode({
   const [tempTimeframe, setTempTimeframe] = useState(
     (config.timeframe || 7).toString()
   );
-  const [isBranching, setIsBranching] = useState(false);
+  const [isBranching, setIsBranching] = useState(delayMode === "fixed");
   const timeframe = config.timeframe || 7;
   const timeUnit = config.timeUnit || "days";
-
+  const handleDelayModeChange = useFlowStore((s) => s.handleDelayModeChange);
+  
   useEffect(() => {
-    setIsBranching(!isBranching);
-  }, [delayMode]);
+    setIsBranching(delayMode === "fixed");
+    // Update node internals when handles change
+    updateNodeInternals(id);
+  }, [delayMode, id, updateNodeInternals]);
 
   useEffect(() => {
     setTempTimeframe((config.timeframe || 7).toString());
@@ -79,6 +83,7 @@ export default function LinkedInRequestAcceptedNode({
         if (!d.config.timeUnit) d.config.timeUnit = "days";
       }
     });
+    handleDelayModeChange(id, "fixed");
     setMenuOpen(false);
   };
 
@@ -89,9 +94,9 @@ export default function LinkedInRequestAcceptedNode({
         d.delayMode = "waitUntil";
       }
     });
+    handleDelayModeChange(id, "waitUntil");
     setMenuOpen(false);
   };
-
   return (
     <div className="relative w-72 z-10">
       <Handle type="target" position={Position.Top} className="opacity-0" />
@@ -102,14 +107,14 @@ export default function LinkedInRequestAcceptedNode({
           <ButtonHandle
             type="source"
             position={Position.Bottom}
-     
+            id="yes"
             onClick={handlePlusClick}
             showButton={isLastNode && !connectionInProgress}
           />
-           <ButtonHandle
+          <ButtonHandle
             type="source"
+            id="no"
             position={Position.Bottom}
-   
             onClick={handlePlusClick}
             showButton={isLastNode && !connectionInProgress}
           />

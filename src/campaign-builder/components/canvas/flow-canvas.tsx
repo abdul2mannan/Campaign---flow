@@ -19,12 +19,12 @@ import {
   type OnConnect,
 } from "@xyflow/react";
 import { Plus, Copy, Loader2 } from "lucide-react";
-import MergeNode from "@/campaign-builder/nodes/MergeNode";
 
 import ProfileVisitNode from "@/campaign-builder/nodes/ProfileVisitNode";
 import LikePostNode from "@/campaign-builder/nodes/LikePostNode";
 import SendInviteNode from "@/campaign-builder/nodes/SendInviteNode";
 import LinkedInRequestAcceptedNode from "@/campaign-builder/nodes/LinkedInRequestAcceptedNode";
+import MergeNode from "@/campaign-builder/nodes/MergeNode";
 
 import { ActionPalette } from "@/campaign-builder/palette/action-palette";
 import { ConfigPanel } from "@/campaign-builder/panels/index";
@@ -39,6 +39,7 @@ import { ButtonEdge } from "@/components/button-edge";
 import { useAutoLayout } from "../../hooks/useAutoLayout";
 
 import "@xyflow/react/dist/style.css";
+
 
 const nodeTypes = {
   profile_visit: ProfileVisitNode,
@@ -68,6 +69,8 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
     layoutDirection,
     setIsLayouting,
     applyLayoutResult,
+    createAutoMergeForConditional,
+    handleDelayModeChange,
   } = useFlowStore();
 
   const reactFlowInstance = useReactFlow();
@@ -127,17 +130,23 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   );
 
   const handleNodeClick = useCallback((_: React.MouseEvent, n: Node) => {
+    // Don't open config panel for merge nodes
+    if (n.type === "merge") return;
+    
     setSelectedNode(n);
     setShowConfigPanel(true);
   }, []);
 
   const onSelectionChange = useCallback(
     ({ nodes: sel }: { nodes: Node[] }) => {
-      if (sel.length === 1) {
-        const live = storeNodes.find((n) => n.id === sel[0].id) || sel[0];
+      // Filter out merge nodes from selection
+      const selectableNodes = sel.filter(n => n.type !== "merge");
+      
+      if (selectableNodes.length === 1) {
+        const live = storeNodes.find((n) => n.id === selectableNodes[0].id) || selectableNodes[0];
         setSelectedNode(live);
         setShowConfigPanel(true);
-      } else if (sel.length === 0) {
+      } else if (selectableNodes.length === 0) {
         setSelectedNode(null);
         setShowConfigPanel(false);
       }
@@ -172,6 +181,40 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
     return () => style.remove();
   }, []);
 
+  useEffect(() => {
+    const selectedConditionalNodes = storeNodes.filter((node) => {
+      const isConditional =
+        node.selected &&
+        (node.data.category === "condition" || node.data?.branchable === true);
+
+      // Only process nodes with delayMode === "fixed"
+      const hasFixedDelayMode = node.data?.delayMode === "fixed";
+
+      return isConditional && hasFixedDelayMode;
+    });
+
+    selectedConditionalNodes.forEach((node) => {
+      // Check if this conditional node doesn't already have a merge node
+      const hasMergeConnection = edges.some(
+        (edge) =>
+          edge.source === node.id &&
+          storeNodes.find((n) => n.id === edge.target && n.type === "merge")
+      );
+
+      if (!hasMergeConnection) {
+        // Create auto-merge after a short delay to avoid conflicts
+        setTimeout(() => {
+          createAutoMergeForConditional(node.id);
+        }, 100);
+      }
+    });
+  }, [storeNodes, edges, createAutoMergeForConditional]);
+
+  // Add this useEffect to monitor delayMode changes
+  useEffect(() => {
+    // This effect monitors changes in node data to detect delayMode switches
+    // Note: This will be triggered by the conditional node components when they update delayMode
+  }, [storeNodes, handleDelayModeChange]);
   /* ----------------------------- Overlays ------------------------------- */
 
   const EmptyState = () =>
@@ -219,10 +262,23 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
 
   /* ------------------------------ Render -------------------------------- */
 
+  // Process nodes to make merge nodes non-selectable and non-draggable
+  const processedNodes = nodes.map(node => {
+    if (node.type === "merge") {
+      return {
+        ...node,
+        selectable: false,
+        draggable: false,
+        focusable: false,
+      };
+    }
+    return node;
+  });
+
   return (
     <div className="h-full w-full relative" style={canvasStyle}>
       <ReactFlow
-        nodes={nodes}
+        nodes={processedNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -233,6 +289,7 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={!!nodes.length}
+        selectNodesOnDrag={false}
         fitView
         proOptions={{ hideAttribution: true }}
       >

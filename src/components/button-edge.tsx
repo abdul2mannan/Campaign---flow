@@ -1,3 +1,4 @@
+// src/components/button-edge.tsx
 import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -7,13 +8,47 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  useStore,
   type EdgeProps,
+  type ReactFlowState,
 } from "@xyflow/react";
 
 interface ButtonEdgeProps extends EdgeProps {
   children?: ReactNode;
   showButton?: boolean;
 }
+
+const BEND_STEP = 25;
+
+/**
+ * Map an edge's index (k) among `total` parallel edges to a bend offset.
+ * – If total is **odd**, the centre edge (k==mid) stays straight (0 offset);
+ *   others bend symmetrically: … -2, -1, 0, +1, +2 …
+ * – If total is **even**, every edge bends with no 0 lane:
+ *     k: 0,1,2,3,4,5 … → -1,+1,-2,+2,-3,+3 …
+ */
+const getBendOffset = (k: number, total: number): number => {
+  if (total % 2 === 1) {
+    const mid = Math.floor(total / 2); // centre index
+    return (k - mid) * BEND_STEP; // 0 for centre, ±1, ±2 …
+  }
+  // even: zig-zag pattern that skips 0
+  const magnitude = Math.floor(k / 2) + 1; // 1,1,2,2,3,3…
+  const sign = k % 2 === 0 ? -1 : 1; // -, +, -, + …
+  return sign * magnitude * BEND_STEP;
+};
+
+const getSpecialPath = (
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  offset: number
+) => {
+  const cx = (sourceX + targetX) / 2;
+  const cy = (sourceY + targetY) / 2;
+  return `M ${sourceX} ${sourceY} Q ${cx + offset} ${cy} ${targetX} ${targetY}`;
+};
 
 export const ButtonEdge = ({
   id,
@@ -31,15 +66,56 @@ export const ButtonEdge = ({
   showButton = true,
 }: ButtonEdgeProps) => {
   const setPlusContext = useFlowStore((s) => s.setPlusContext);
+
+  /** 1️⃣ Gather and stabilise all parallel edges */
+  const similarEdges = useStore(
+    (s: ReactFlowState) =>
+      s.edges
+        .filter((e) => e.source === source && e.target === target)
+        .sort((a, b) => a.id.localeCompare(b.id)) // deterministic order
+  );
   
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const idx = similarEdges.findIndex((e) => e.id === id);
+  const total = similarEdges.length;
+
+  const params = {
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-  });
+  };
+
+  /** 2️⃣ Decide the path */
+  let path: string;
+  let labelX: number;
+  let labelY: number;
+
+  if (total===1) {
+    // single edge → default smooth curve
+    const [bezierPath, lX, lY] = getBezierPath(params);
+    path = bezierPath;
+    labelX = lX;
+    labelY = lY;
+  } else {
+    const offset = getBendOffset(idx, total);
+    if (offset === 0) {
+      // centre edge of an odd count → leave straight
+      const [bezierPath, lX, lY] = getBezierPath(params);
+      path = bezierPath;
+      labelX = lX;
+      labelY = lY;
+    } else {
+      // curved siblings
+      path = getSpecialPath(sourceX, sourceY, targetX, targetY, offset);
+      // Calculate label position for curved path
+      const cx = (sourceX + targetX) / 2;
+      const cy = (sourceY + targetY) / 2;
+      labelX = cx + offset;
+      labelY = cy;
+    }
+  }
 
   const onEdgeClick = () => {
     setPlusContext({
@@ -55,7 +131,7 @@ export const ButtonEdge = ({
 
   return (
     <>
-      <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+      <BaseEdge path={path} markerEnd={markerEnd} style={style} />
       {showButton && (
         <EdgeLabelRenderer>
           <div
