@@ -10,7 +10,11 @@ const selector = (connection: ConnectionState) => {
   return connection.inProgress;
 };
 
-export default function MergeNode({ id, selected }: NodeProps<MergeNodeType>) {
+export default function MergeNode({
+  data,
+  id,
+  selected,
+}: NodeProps<MergeNodeType>) {
   const setPlusContext = useFlowStore((s) => s.setPlusContext);
   const edges = useFlowStore((s) => s.edges);
   const connectionInProgress = useConnection(selector);
@@ -30,25 +34,28 @@ export default function MergeNode({ id, selected }: NodeProps<MergeNodeType>) {
       className="relative w-72 h-4 z-10" // ← React Flow’s wrapper is *outside* this
       onPointerDown={stopNodeInteraction} // block clicks anywhere inside
     >
-      <Handle type="target" position={Position.Top} className="opacity-0 "
-       />
-
+      {data.branches?.map((b, i) => (
+        <Handle
+          key={b.id}
+          type="target"
+          id={b.id}
+          position={Position.Top}
+          style={{
+            left: `${50 + i / 100}%`
+          }}
+        />
+      ))}
       <ButtonHandle
         type="source"
         position={Position.Bottom}
         onClick={handlePlusClick}
         showButton={isLastNode && !connectionInProgress}
-  
-
       />
 
       {/* Visual merge representation - diamond shape with lines */}
-      <div className="relative w-full h-4 flex items-center justify-center">
-      
-  
+      <div className="relative w-full h-8 flex items-center justify-center">
         {/* Center diamond/merge symbol */}
         <div className="relative z-10 w-4 h-4 bg-white border-2 border-gray-400 rotate-45 shadow-sm"></div>
-      
       </div>
     </div>
   );

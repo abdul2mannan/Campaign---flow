@@ -8,6 +8,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  getSmoothStepPath,
   useStore,
   type EdgeProps,
   type ReactFlowState,
@@ -18,7 +19,7 @@ interface ButtonEdgeProps extends EdgeProps {
   showButton?: boolean;
 }
 
-const BEND_STEP = 25;
+const BEND_STEP = 60;
 
 /**
  * Map an edge's index (k) among `total` parallel edges to a bend offset.
@@ -45,9 +46,35 @@ const getSpecialPath = (
   targetY: number,
   offset: number
 ) => {
-  const cx = (sourceX + targetX) / 2;
-  const cy = (sourceY + targetY) / 2;
-  return `M ${sourceX} ${sourceY} Q ${cx + offset} ${cy} ${targetX} ${targetY}`;
+  const verticalGap = targetY - sourceY;
+
+  // Pure downward control for the start
+  const c1x = sourceX;
+  const c1y = sourceY + verticalGap * 0.4;
+
+  // Horizontal outward control for the end
+  const c2x = targetX + offset;
+  const c2y = targetY - verticalGap * 0.6;
+
+  return `M ${sourceX},${sourceY} C ${c1x},${c1y} ${c2x},${c2y} ${targetX},${targetY}`;
+
+};
+const Badge = ({ label }: { label: string }) => {
+  const colour =
+    label.toLowerCase() === "yes"
+      ? "text-green-600"
+      : label.toLowerCase() === "no"
+      ? "text-red-600"
+      : "text-gray-600";
+  return (
+    <span
+      className={`nodrag nopan pointer-events-none select-none
+                  px-1 py-0.5 text-xs font-medium ${colour}
+                  bg-white/80 rounded shadow`}
+    >
+      {label}
+    </span>
+  );
 };
 
 export const ButtonEdge = ({
@@ -63,6 +90,7 @@ export const ButtonEdge = ({
   style = {},
   markerEnd,
   children,
+  data,
   showButton = true,
 }: ButtonEdgeProps) => {
   const setPlusContext = useFlowStore((s) => s.setPlusContext);
@@ -74,7 +102,7 @@ export const ButtonEdge = ({
         .filter((e) => e.source === source && e.target === target)
         .sort((a, b) => a.id.localeCompare(b.id)) // deterministic order
   );
-  
+
   const idx = similarEdges.findIndex((e) => e.id === id);
   const total = similarEdges.length;
 
@@ -91,10 +119,9 @@ export const ButtonEdge = ({
   let path: string;
   let labelX: number;
   let labelY: number;
-
-  if (total===1) {
+  if (total === 1) {
     // single edge → default smooth curve
-    const [bezierPath, lX, lY] = getBezierPath(params);
+    const [bezierPath, lX, lY] = getSmoothStepPath(params);
     path = bezierPath;
     labelX = lX;
     labelY = lY;
@@ -119,7 +146,7 @@ export const ButtonEdge = ({
 
   const onEdgeClick = () => {
     setPlusContext({
-      type: 'edge',
+      type: "edge",
       edgeId: id,
       sourceId: source,
       targetId: target,
@@ -132,6 +159,18 @@ export const ButtonEdge = ({
   return (
     <>
       <BaseEdge path={path} markerEnd={markerEnd} style={style} />
+      {data?.label && (
+        <EdgeLabelRenderer>
+          <div
+            className="absolute nopan nodrag pointer-events-none"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+            }}
+          >
+            <Badge label={data.label as string} />
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {showButton && (
         <EdgeLabelRenderer>
           <div

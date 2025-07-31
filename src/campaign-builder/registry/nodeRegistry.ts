@@ -5,6 +5,7 @@ import LikePostNode from "@/cb/nodes/LikePostNode";
 import SendInviteNode from "@/cb/nodes/SendInviteNode";
 import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
 import MergeNode from "@/campaign-builder/nodes/MergeNode";
+import type { Branch } from "@/campaign-builder/types/flow-nodes";
 
 import "@xyflow/react/dist/style.css";
 /** Generic node component type */
@@ -25,7 +26,7 @@ export interface ConfigField {
 
 export interface PrereqRules {
   requiresUpstream?: string[];
-  branchContext?: "yes" | "no" | null;
+  branchContext?: string | null;
   integrationFlags?: string[];
   addonFlags?: string[];
 }
@@ -51,7 +52,10 @@ export interface NodeMeta extends NodeMetaCore {
   component: NodeComponent;
 }
 
-export const nodeRegistry: Record<string, NodeMeta> = {
+export const nodeRegistry: Record<
+  string,
+  NodeMeta & { defaultBranches?: Branch[] }
+> = {
   profile_visit: {
     type: "profile_visit",
     title: "Visit Profile",
@@ -125,6 +129,10 @@ export const nodeRegistry: Record<string, NodeMeta> = {
     inputs: 1,
     outputs: 2, // Dynamic: 2 for fixed (branches), 1 for waitUntil
     branchable: true,
+    defaultBranches: [
+      { id: "yes", label: "Yes", colour: "#16a34a" },
+      { id: "no", label: "No", colour: "#dc2626" },
+    ],
     delayModes: ["fixed", "waitUntil"],
     styleKey: "condition-linkedin-",
     component: LinkedInRequestAcceptedNode as NodeComponent,

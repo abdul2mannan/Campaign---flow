@@ -2,6 +2,7 @@ import type { Node } from "@xyflow/react";
 import { nodeRegistry } from "./nodeRegistry";
 import "@xyflow/react/dist/style.css";
 import { generateNodeId } from "@/campaign-builder/utils/helpers";
+import type { Branch } from "@/campaign-builder/types/flow-nodes";
 
 function getNodeId(type: string): string {
   return generateNodeId(type);
@@ -13,6 +14,9 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
 
   const newId = getNodeId(type);
 
+  const defaultBranches: Branch[] | undefined = meta.branchable
+    ? meta.defaultBranches
+    : undefined;
   let defaultDelayMode = meta.delayModes[0];
   if (meta.category === "condition") {
     defaultDelayMode = "fixed";
@@ -26,6 +30,7 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
       meta,
       config: {},
       delayMode: defaultDelayMode,
+      ...(defaultBranches ? { branches: defaultBranches } : {}),
       ...(overrides.data ?? {}),
     },
     ...overrides,

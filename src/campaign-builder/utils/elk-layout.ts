@@ -23,17 +23,16 @@ const DEFAULT_ELK_OPTIONS = {
   "elk.direction": "DOWN",
   "elk.edgeRouting": "ORTHOGONAL",
   "elk.layered.unnecessaryBendpoints": "true",
-  "elk.eliminate": "true",
   "elk.spacing.nodeNode": "500",
   "elk.layered.spacing.nodeNodeBetweenLayers": "200",
-  "elk.spacing.edgeNode": "200",
+  "elk.spacing.edgeNode": "500",
   "elk.spacing.edgeEdge": "200",
   "elk.layered.spacing.edgeNodeBetweenLayers": "120",
   "elk.layered.spacing.edgeEdgeBetweenLayers": "120",
-  "elk.portConstraints": "FIXED_ORDER",
-  "elk.layered.mergeEdges": "true",
-  "elk.layered.thoroughness": "7",
   "elk.layered.nodePlacement.favorStraightEdges": "true",
+  "elk.layered.thoroughness": "12",
+  "elk.overlapRemoval.maxIterations": "5",
+  "elk.layered.nodePlacement.bk.fixedAlignment": 'BALANCED'
 };
 
 // Convert React Flow nodes/edges to ELK format
@@ -61,6 +60,7 @@ const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
   const elkNodes = nodes.map((node) => {
     return {
       id: node.id,
+      layoutOptions: { "elk.portConstraints": "FIXED_SIDE" }, // lock them :contentReference[oaicite:3]{index=3}
     };
   });
 
@@ -134,6 +134,7 @@ export const computeLayout = async (
     // Convert back to React Flow format
     return fromElkFormat(layoutedGraph, nodes, edges);
   } catch (error) {
+    console.error(error);
     throw new Error("Failed to auto layout");
   }
 };

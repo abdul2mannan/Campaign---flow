@@ -106,21 +106,20 @@ export default function LinkedInRequestAcceptedNode({
     <div className="relative w-72 z-10">
       <Handle type="target" position={Position.Top} className="opacity-0" />
 
-      {isBranching ? (
+      {isBranching && data.branches && data.branches.length > 0 ? (
         <>
           {/* Yes branch handle for fixed mode */}
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="yes"
-            className="opacity-0"
-          />
-          <Handle
-            type="source"
-            id="no"
-            position={Position.Bottom}
-            className="opacity-0"
-          />
+          {data.branches.map((b, i) => (
+            <Handle
+              key={b.id}
+              type="source"
+              position={Position.Bottom}
+              id={b.id}
+              style={{
+                left: `${50 + i / 100}%`,
+              }}
+            />
+          ))}
         </>
       ) : (
         /* Single output handle for waitUntil mode */

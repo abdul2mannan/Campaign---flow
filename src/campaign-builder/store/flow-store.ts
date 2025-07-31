@@ -10,6 +10,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { createNode } from "@/campaign-builder/registry/factory";
+import { Branch } from "../types/flow-nodes";
 export const ANIMATION_MS = 600;
 export const NODE_VERTICAL_GAP = 200;
 
@@ -37,7 +38,9 @@ const createMergeNodeForConditional = (
   edges: any[]
 ) => {
   const conditionalNode = nodes.find((n) => n.id === conditionalNodeId);
-  if (!conditionalNode) return null;
+  if (!conditionalNode) {
+    return null;
+  }
 
   // Check if this conditional node already has a merge node
   const existingMergeConnection = edges.find(
@@ -56,7 +59,7 @@ const createMergeNodeForConditional = (
   if (!isConditionalNode) return null;
 
   // IMPORTANT: Only create merge node if delayMode is "fixed" (branches)
-  const delayMode = conditionalNode.data?.meta?.delayMode;
+  const delayMode = conditionalNode.data?.delayMode;
   if (delayMode !== "fixed") {
     return null; // Don't create merge for "waitUntil" mode
   }
@@ -65,32 +68,28 @@ const createMergeNodeForConditional = (
   const mergeNode = createNode("merge", {
     position: {
       x: conditionalNode.position.x,
-      y: conditionalNode.position.y + 200, // Position below
+      y: conditionalNode.position.y, // Position below
+    },
+    data: {
+      branches: conditionalNode.data?.branches,
     },
   });
 
   // Create edges from conditional node's "yes" and "no" outputs to merge node
-  const yesEdge = {
-    id: `${conditionalNodeId}-yes-${mergeNode.id}`,
+  const branchEdges = conditionalNode.data?.branches?.map((b: Branch) => ({
+    id: `${conditionalNodeId}-${b.id}-${mergeNode.id}`,
     source: conditionalNodeId,
     target: mergeNode.id,
-    sourceHandle: "yes",
+    sourceHandle: b.id,
+    targetHandle: b.id,
     type: "buttonedge",
-    data: { label: "Yes" },
-  };
-
-  const noEdge = {
-    id: `${conditionalNodeId}-no-${mergeNode.id}`,
-    source: conditionalNodeId,
-    target: mergeNode.id,
-    sourceHandle: "no",
-    type: "buttonedge",
-    data: { label: "No" },
-  };
-
+    data: {
+      label: b.label,
+    },
+  }));
   return {
     mergeNode,
-    edges: [yesEdge, noEdge],
+    edges: branchEdges,
   };
 };
 interface FlowState extends LayoutState {
@@ -127,7 +126,11 @@ interface FlowState extends LayoutState {
   insertAtEnd(parentId: string, nodeType: string): void;
   insertBetweenNodes(edgeId: string, nodeType: string): void;
 
-  createAutoMergeForConditional: (conditionalNodeId: string) => void;
+  createAutoMergeForConditional: (conditionalNodeId: string) => Promise<void>;
+  createAutoMergeForConditionalWithTarget: (
+    conditionalNodeId: string,
+    targetNodeId: string
+  ) => Promise<void>;
   handleDelayModeChange: (nodeId: string, newDelayMode: string) => void; // Add this
 }
 
@@ -331,11 +334,15 @@ export const useFlowStore = create<FlowState>()(
     setPlusContext: (ctx) => set((d) => void (d.plusContext = ctx)),
     clearPlusContext: () => set((d) => void (d.plusContext = null)),
 
-    insertAtEnd: (parentId, nodeType) =>
+    insertAtEnd: async (parentId, nodeType) =>
       set((d) => {
         const parent = d.nodes.find((n) => n.id === parentId);
         if (!parent) return;
         const newNode = createNode(nodeType, { position: parent.position });
+        const isConditional =
+          (newNode.data?.meta as any)?.category === "condition";
+
+        // Always add the node to the nodes array
         d.nodes.push(markNode(newNode, "entering") as any);
         d.edges.push({
           id: `${parentId}-${newNode.id}`,
@@ -343,6 +350,13 @@ export const useFlowStore = create<FlowState>()(
           target: newNode.id,
           type: "buttonedge",
         });
+        if (isConditional) {
+          if ((newNode.data?.delayMode as any) === "fixed") {
+            setTimeout(() => {
+              get().createAutoMergeForConditional(newNode.id);
+            }, 100);
+          }
+        }
 
         setTimeout(() => {
           set((dd) => {
@@ -374,23 +388,44 @@ export const useFlowStore = create<FlowState>()(
           : { x: 0, y: 0 };
 
         const newNode = createNode(nodeType, { position: initialPosition });
+        const isConditional =
+          (newNode.data?.meta as any)?.category === "condition";
+        const targetId = e.target;
+
+        // Always add the node to the nodes array
         d.nodes.push(markNode(newNode, "entering") as any);
         d.edges = d.edges.filter((ed) => ed.id !== edgeId);
+        d.edges.push({
+          id: `${e.source}-${newNode.id}`,
+          source: e.source,
+          target: newNode.id,
+          type: "buttonedge",
+        });
+        if (isConditional) {
+          const newNodeId = newNode.id;
 
-        d.edges.push(
-          {
-            id: `${e.source}-${newNode.id}`,
-            source: e.source,
-            target: newNode.id,
-            type: "buttonedge",
-          },
-          {
+          if ((newNode.data?.delayMode as any) === "fixed") {
+            setTimeout(async () => {
+              try {
+                await get().createAutoMergeForConditionalWithTarget(
+                  newNodeId,
+                  targetId
+                );
+              } catch (error) {
+                console.error("Failed to create merge node:", error);
+              }
+            }, 200);
+          }
+        } else {
+          // For non-conditional nodes, create both incoming and outgoing edges
+
+          d.edges.push({
             id: `${newNode.id}-${e.target}`,
             source: newNode.id,
             target: e.target,
             type: "buttonedge",
-          }
-        );
+          });
+        }
 
         setTimeout(() => {
           set((dd) => {
@@ -410,41 +445,144 @@ export const useFlowStore = create<FlowState>()(
         });
       }),
 
-    createAutoMergeForConditional: (conditionalNodeId) =>
-      set((d) => {
-        const result = createMergeNodeForConditional(
-          conditionalNodeId,
-          d.nodes,
-          d.edges
-        );
-        if (!result) return;
+    createAutoMergeForConditional: async (conditionalNodeId) => {
+      try {
+        // Wait for any pending state updates to complete
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
-        const { mergeNode, edges } = result;
+        return new Promise<void>((resolve, reject) => {
+          set((d) => {
+            try {
+              const result = createMergeNodeForConditional(
+                conditionalNodeId,
+                d.nodes,
+                d.edges
+              );
+              if (!result) {
+                reject(new Error("No merge node result returned"));
+                return;
+              }
 
-        // Add the merge node
-        d.nodes.push(markNode(mergeNode, "entering") as any);
+              const { mergeNode, edges } = result;
 
-        // Add the connecting edges
-        d.edges.push(...edges);
+              // Add the merge node
+              d.nodes.push(markNode(mergeNode, "entering") as any);
 
-        // Trigger layout
-        setTimeout(() => {
-          set((dd) => {
-            const idx = dd.nodes.findIndex((n) => n.id === mergeNode.id);
-            if (idx !== -1) {
-              dd.nodes[idx].data = {
-                ...dd.nodes[idx].data,
-                animationState: "stable",
-              };
+              // Add the connecting edges
+              d.edges.push(...edges);
+
+              // Trigger layout
+              setTimeout(() => {
+                set((dd) => {
+                  const idx = dd.nodes.findIndex((n) => n.id === mergeNode.id);
+                  if (idx !== -1) {
+                    dd.nodes[idx].data = {
+                      ...dd.nodes[idx].data,
+                      animationState: "stable",
+                    };
+                  }
+                });
+              }, ANIMATION_MS);
+
+              get().triggerLayout({
+                type: "auto",
+                affectedNodeIds: [conditionalNodeId, mergeNode.id],
+              });
+
+              resolve();
+            } catch (error) {
+              console.error("Error in createAutoMergeForConditional:", error);
+              reject(error);
             }
           });
-        }, ANIMATION_MS);
-
-        get().triggerLayout({
-          type: "auto",
-          affectedNodeIds: [conditionalNodeId, mergeNode.id],
         });
-      }),
+      } catch (error) {
+        console.error("Error creating merge node:", error);
+        throw error;
+      }
+    },
+
+    createAutoMergeForConditionalWithTarget: async (
+      conditionalNodeId,
+      targetNodeId
+    ) => {
+      try {
+        // Wait for any pending state updates to complete
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        return new Promise<void>((resolve, reject) => {
+          set((d) => {
+            try {
+              // Get the most current state to ensure we have the latest nodes
+              const currentState = get();
+
+              // Use the existing helper function to create the merge node
+              const result = createMergeNodeForConditional(
+                conditionalNodeId,
+                currentState.nodes,
+                currentState.edges
+              );
+
+              if (!result) {
+                reject(
+                  new Error("Merge node creation failed - conditions not met")
+                );
+                return;
+              }
+
+              const { mergeNode, edges } = result;
+
+              // Create edge from merge node to the target node
+              const targetEdge = {
+                id: `${mergeNode.id}-${targetNodeId}`,
+                source: mergeNode.id,
+                target: targetNodeId,
+                type: "buttonedge",
+              };
+
+              // Add the merge node
+              d.nodes.push(markNode(mergeNode, "entering") as any);
+
+              // Add the connecting edges
+              d.edges.push(...edges);
+              d.edges.push(targetEdge);
+
+              setTimeout(() => {
+                set((dd) => {
+                  const idx = dd.nodes.findIndex((n) => n.id === mergeNode.id);
+                  if (idx !== -1) {
+                    dd.nodes[idx].data = {
+                      ...dd.nodes[idx].data,
+                      animationState: "stable",
+                    };
+                  }
+                });
+              }, ANIMATION_MS);
+
+              get().triggerLayout({
+                type: "auto",
+                affectedNodeIds: [
+                  conditionalNodeId,
+                  mergeNode.id,
+                  targetNodeId,
+                ],
+              });
+
+              resolve();
+            } catch (error) {
+              console.error(
+                "Error in createAutoMergeForConditionalWithTarget:",
+                error
+              );
+              reject(error);
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error creating merge node:", error);
+        throw error;
+      }
+    },
 
     // Add this new action to handle delayMode changes
     handleDelayModeChange: (nodeId, newDelayMode) =>
