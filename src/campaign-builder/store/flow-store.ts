@@ -11,7 +11,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { createNode } from "@/campaign-builder/registry/factory";
 import { Branch } from "../types/flow-nodes";
-export const ANIMATION_MS = 600;
+export const ANIMATION_MS = 0;
 export const NODE_VERTICAL_GAP = 200;
 
 interface LayoutState {
@@ -255,7 +255,7 @@ export const useFlowStore = create<FlowState>()(
               };
             }
           });
-        }, ANIMATION_MS);
+        });
 
         get().triggerLayout({
           type: "auto",
@@ -391,7 +391,7 @@ export const useFlowStore = create<FlowState>()(
         const isConditional =
           (newNode.data?.meta as any)?.category === "condition";
         const targetId = e.target;
-
+        const label = e.data?.label as string;
         // Always add the node to the nodes array
         d.nodes.push(markNode(newNode, "entering") as any);
         d.edges = d.edges.filter((ed) => ed.id !== edgeId);
@@ -399,7 +399,11 @@ export const useFlowStore = create<FlowState>()(
           id: `${e.source}-${newNode.id}`,
           source: e.source,
           target: newNode.id,
+          sourceHandle: e.sourceHandle,
           type: "buttonedge",
+          data: {
+            label: label,
+          },
         });
         if (isConditional) {
           const newNodeId = newNode.id;
@@ -418,11 +422,12 @@ export const useFlowStore = create<FlowState>()(
           }
         } else {
           // For non-conditional nodes, create both incoming and outgoing edges
-
+          
           d.edges.push({
             id: `${newNode.id}-${e.target}`,
             source: newNode.id,
             target: e.target,
+            targetHandle: e.targetHandle,
             type: "buttonedge",
           });
         }
@@ -598,11 +603,10 @@ export const useFlowStore = create<FlowState>()(
         // Check if this is a conditional node
         const isConditionalNode =
           (node.data?.meta as any)?.category === "condition" ||
-          node.data?.branchable === true;
+          (node.data?.meta as any)?.branchable === true;
         if (!isConditionalNode) return;
 
         if (newDelayMode === "fixed") {
-          // Create merge node if switching to fixed mode
           setTimeout(() => {
             get().createAutoMergeForConditional(nodeId);
           }, 100);

@@ -53,10 +53,7 @@ const edgeTypes = {
   buttonedge: ButtonEdge,
 };
 
-const canvasStyle: CSSProperties = {
-  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: "transform",
-};
+
 
 function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   const {
@@ -164,22 +161,22 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
 
   /* ---------------------------- Style sheet ----------------------------- */
 
-  useEffect(() => {
-    const id = "flow-anim-styles";
-    if (document.getElementById(id)) return;
+  // useEffect(() => {
+  //   const id = "flow-anim-styles";
+  //   if (document.getElementById(id)) return;
 
-    const style = document.createElement("style");
-    style.id = id;
-    style.textContent = `
-      .react-flow__node {transition:transform .35s cubic-bezier(.4,0,.2,1)!important;}
-      .react-flow__node[data-new="true"]{animation:nodeEnter .5s forwards}
-      .react-flow__node[data-deleting="true"]{animation:nodeExit .3s forwards;pointer-events:none}
-      @keyframes nodeEnter{0%{opacity:0;transform:scale(.8) translateY(-10px)}
-        60%{opacity:.8;transform:scale(1.02)}100%{opacity:1}}
-      @keyframes nodeExit{0%{opacity:1}100%{opacity:0;transform:scale(.9)}}`;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, []);
+  //   const style = document.createElement("style");
+  //   style.id = id;
+  //   style.textContent = `
+  //     .react-flow__node {transition:transform .35s cubic-bezier(.4,0,.2,1)!important;}
+  //     .react-flow__node[data-new="true"]{animation:nodeEnter .5s forwards}
+  //     .react-flow__node[data-deleting="true"]{animation:nodeExit .3s forwards;pointer-events:none}
+  //     @keyframes nodeEnter{0%{opacity:0;transform:scale(.8) translateY(-10px)}
+  //       60%{opacity:.8;transform:scale(1.02)}100%{opacity:1}}
+  //     @keyframes nodeExit{0%{opacity:1}100%{opacity:0;transform:scale(.9)}}`;
+  //   document.head.appendChild(style);
+  //   return () => style.remove();
+  // }, []);
 
   useEffect(() => {
     const selectedConditionalNodes = storeNodes.filter((node) => {
@@ -276,7 +273,7 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   });
 
   return (
-    <div className="h-full w-full relative" style={canvasStyle}>
+    <div className="h-full w-full relative">
       <ReactFlow
         nodes={processedNodes}
         edges={edges}

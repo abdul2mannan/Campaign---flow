@@ -32,9 +32,10 @@ const DEFAULT_ELK_OPTIONS = {
   "elk.layered.nodePlacement.favorStraightEdges": "true",
   "elk.layered.thoroughness": "12",
   "elk.overlapRemoval.maxIterations": "5",
-  "elk.layered.nodePlacement.bk.fixedAlignment": 'BALANCED'
-};
-
+  "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+  "elk.animate": "true",
+  "elk.partitioning.activate":"true"
+}
 // Convert React Flow nodes/edges to ELK format
 const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
   const elkOptions = {

@@ -19,7 +19,7 @@ interface ButtonEdgeProps extends EdgeProps {
   showButton?: boolean;
 }
 
-const BEND_STEP = 60;
+const BEND_STEP = 120;
 
 /**
  * Map an edge's index (k) among `total` parallel edges to a bend offset.
@@ -54,9 +54,15 @@ const getSpecialPath = (
 
   // Horizontal outward control for the end
   const c2x = targetX + offset;
-  const c2y = targetY - verticalGap * 0.6;
+  const c2y = sourceY + verticalGap * 0.000000001;
 
-  return `M ${sourceX},${sourceY} C ${c1x},${c1y} ${c2x},${c2y} ${targetX},${targetY}`;
+  const c3x = targetX + offset;
+  const c3y = targetY - verticalGap * 0.45;
+  
+  const c4x = targetX;
+  const c4y = targetY - verticalGap*0.4;
+
+  return `M ${sourceX},${sourceY} C ${c1x},${c1y} ${c2x},${c2y} ${c3x},${c3y} S ${c4x},${c4y} ${targetX},${targetY}`;
 
 };
 const Badge = ({ label }: { label: string }) => {
@@ -121,7 +127,8 @@ export const ButtonEdge = ({
   let labelY: number;
   if (total === 1) {
     // single edge → default smooth curve
-    const [bezierPath, lX, lY] = getSmoothStepPath(params);
+    
+    const [bezierPath, lX, lY] = getBezierPath(params);
     path = bezierPath;
     labelX = lX;
     labelY = lY;
