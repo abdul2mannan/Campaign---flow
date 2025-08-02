@@ -18,7 +18,7 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
     ? meta.defaultBranches
     : undefined;
   let defaultDelayMode = meta.delayModes[0];
-  
+
   if (meta.category === "condition") {
     defaultDelayMode = "fixed";
   }
@@ -30,6 +30,7 @@ export function createNode(type: string, overrides: Partial<Node> = {}): Node {
     data: {
       meta,
       config: {},
+      mergeNodeId: overrides.data?.mergeNodeId ?? null,
       delayMode: defaultDelayMode,
       ...(defaultBranches ? { branches: defaultBranches } : {}),
       ...(overrides.data ?? {}),

@@ -103,13 +103,193 @@ const createMergeNodeForConditional = (
       },
     },
   }));
-
+ console.log("branchEdges", branchEdges);
   return {
     mergeNode,
     edges: branchEdges,
   };
 };
 
+const getNodeDeletionType = (nodeId: string, nodes: Node[], edges: Edge[]) => {
+  const node = nodes.find((n) => n.id === nodeId);
+  if (!node) return null;
+
+  const { incoming, outgoing, isMiddle } = analyzeNodeConnections(
+    nodeId,
+    edges
+  );
+
+  // Check if it's a conditional node
+  const isConditional = (node.data?.meta as any)?.category === "condition";
+  // Check if it's a last node (no outgoing connections)
+  const isLastNode = outgoing.length === 0;
+  // Check if it's a branching conditional (fixed mode creates Yes/No branches)
+  const isBranchingConditional =
+    isConditional && node.data?.delayMode === "fixed";
+
+  return {
+    node,
+    incoming,
+    outgoing,
+    isLastNode,
+    isMiddle,
+    isConditional,
+    isBranchingConditional,
+  };
+};
+
+// Function to find all nodes in a conditional branch using direct merge lookup
+const findConditionalBranchNodes = (
+  conditionalNodeId: string,
+  nodes: Node[],
+  edges: Edge[]
+) => {
+  const conditionalNode = nodes.find((n) => n.id === conditionalNodeId);
+  if (!conditionalNode) {
+    return {
+      nodesToDelete: [conditionalNodeId],
+      mergeNodeId: null,
+      postMergeNodes: [],
+    };
+  }
+
+  const nodesToDelete = new Set<string>();
+  const postMergeNodes = new Set<string>();
+
+  // Add the conditional node itself
+  nodesToDelete.add(conditionalNodeId);
+
+  // Get merge node ID directly from conditional node data
+  const mergeNodeId = conditionalNode.data?.mergeNodeId as string | undefined;
+
+  if (mergeNodeId) {
+    const mergeNode = nodes.find((n) => n.id === mergeNodeId);
+    if (mergeNode) {
+      // Add merge node to deletion list
+      nodesToDelete.add(mergeNodeId);
+
+      // Find all nodes between conditional and merge by traversing both branches
+      const branchNodes = findNodesBetweenConditionalAndMerge(
+        conditionalNodeId,
+        mergeNodeId,
+        edges
+      );
+      branchNodes.forEach((nodeId) => nodesToDelete.add(nodeId));
+
+      // Find nodes that come after the merge (for reconnection)
+      const postMergeEdges = edges.filter((e) => e.source === mergeNodeId);
+      postMergeEdges.forEach((e) => postMergeNodes.add(e.target));
+    }
+  } else {
+    // Fallback: If no merge node reference, traverse branches manually
+    const branchNodes = traverseBranchesFromConditional(
+      conditionalNodeId,
+      nodes,
+      edges
+    );
+    branchNodes.forEach((nodeId) => nodesToDelete.add(nodeId));
+  }
+
+  return {
+    nodesToDelete: Array.from(nodesToDelete),
+    mergeNodeId,
+    postMergeNodes: Array.from(postMergeNodes),
+  };
+};
+
+// Helper to find nodes between conditional and merge by following both branch paths
+const findNodesBetweenConditionalAndMerge = (
+  conditionalNodeId: string,
+  mergeNodeId: string,
+  edges: Edge[]
+): string[] => {
+  const branchNodes = new Set<string>();
+  const visited = new Set<string>();
+
+  // Start from conditional node, follow both yes and no branches
+  const conditionalOutgoing = edges.filter(
+    (e) => e.source === conditionalNodeId
+  );
+
+  for (const edge of conditionalOutgoing) {
+    if (edge.sourceHandle === "yes" || edge.sourceHandle === "no") {
+      // Follow this branch until we reach the merge node
+      const pathNodes = followBranchPath(
+        edge.target,
+        mergeNodeId,
+        edges,
+        visited
+      );
+      pathNodes.forEach((nodeId) => branchNodes.add(nodeId));
+    }
+  }
+
+  return Array.from(branchNodes);
+};
+
+// Helper to follow a single branch path from start to merge
+const followBranchPath = (
+  startNodeId: string,
+  mergeNodeId: string,
+  edges: Edge[],
+  globalVisited: Set<string>
+): string[] => {
+  const pathNodes: string[] = [];
+  const queue = [startNodeId];
+  const localVisited = new Set<string>();
+
+  while (queue.length > 0) {
+    const currentNodeId = queue.shift()!;
+
+    if (localVisited.has(currentNodeId) || globalVisited.has(currentNodeId))
+      continue;
+    if (currentNodeId === mergeNodeId) break; // Reached merge, stop
+
+    localVisited.add(currentNodeId);
+    globalVisited.add(currentNodeId);
+    pathNodes.push(currentNodeId);
+
+    // Find next nodes in the path
+    const outgoing = edges.filter((e) => e.source === currentNodeId);
+    for (const edge of outgoing) {
+      queue.push(edge.target);
+    }
+  }
+
+  return pathNodes;
+};
+
+// Fallback traversal for conditionals without merge node reference
+const traverseBranchesFromConditional = (
+  conditionalNodeId: string,
+  nodes: Node[],
+  edges: Edge[]
+): string[] => {
+  const branchNodes = new Set<string>();
+  const visited = new Set<string>();
+  const queue = [conditionalNodeId];
+
+  while (queue.length > 0) {
+    const currentNodeId = queue.shift()!;
+    if (visited.has(currentNodeId)) continue;
+    visited.add(currentNodeId);
+
+    const outgoing = edges.filter((e) => e.source === currentNodeId);
+
+    for (const edge of outgoing) {
+      const targetNode = nodes.find((n) => n.id === edge.target);
+      if (!targetNode) continue;
+
+      // Stop at merge nodes, but don't include regular nodes that might be merge points
+      if (targetNode.type === "merge") continue;
+
+      branchNodes.add(edge.target);
+      queue.push(edge.target);
+    }
+  }
+
+  return Array.from(branchNodes);
+};
 interface FlowState extends LayoutState {
   nodes: Node[];
   edges: Edges[];
@@ -172,14 +352,65 @@ const analyzeNodeConnections = (nodeId: string, edges: Edge[]) => {
   };
 };
 
-const createReconnectionEdges = (incoming: Edge[], outgoing: Edge[]): Edge[] =>
+const createReconnectionEdges = (
+  incoming: Edge[],
+  outgoing: Edge[],
+  nodes: Node[]
+): Edge[] =>
   incoming.flatMap((inE) =>
-    outgoing.map((outE) => ({
-      id: `${inE.source}-${outE.target}`,
-      source: inE.source,
-      target: outE.target,
-      type: "buttonedge",
-    }))
+    outgoing.map((outE) => {
+      const sourceNode = nodes.find((n) => n.id === inE.source);
+      const targetNode = nodes.find((n) => n.id === outE.target);
+
+      // Check if source is conditional node
+      const sourceIsConditional =
+        (sourceNode?.data?.meta as any)?.category === "condition";
+
+      // Check if target is merge node
+      const targetIsMerge = targetNode?.type === "merge";
+
+      let sourceHandle = undefined;
+      let targetHandle = undefined;
+      let edgeData = {};
+      // Preserve sourceHandle if source is conditional
+      if (sourceIsConditional) {
+        sourceHandle = inE.sourceHandle;
+
+        // Preserve label and pluscontext from conditional edge
+        if (inE.data) {
+          const originalLabel = inE.data.label;
+          const originalPlusContext = inE.data.pluscontext;
+
+          edgeData = {
+            label: originalLabel,
+            pluscontext: originalPlusContext
+              ? {
+                  ...originalPlusContext,
+                  // Update target information in pluscontext
+                  targetId: outE.target,
+                  targetNodeId: outE.target,
+                  edgeId: `${inE.source}-${sourceHandle}-${outE.target}`,
+                }
+              : undefined,
+          };
+        }
+      }
+
+      // Preserve targetHandle if target is merge
+      if (targetIsMerge) {
+        targetHandle = outE.targetHandle;
+      }
+  
+      return {
+        id: `${inE.source}-${sourceHandle}-${outE.target}`,
+        source: inE.source,
+        target: outE.target,
+        sourceHandle,
+        targetHandle,
+        type: "buttonedge",
+        data: Object.keys(edgeData).length > 0 ? edgeData : undefined,
+      };
+    })
   );
 
 const markNode = (node: Node, state: "entering" | "exiting") => ({
@@ -287,35 +518,221 @@ export const useFlowStore = create<FlowState>()(
         const idx = d.nodes.findIndex((n) => n.id === id);
         if (idx === -1) return;
 
+        // Mark node as exiting for animation
         d.nodes[idx] = markNode(d.nodes[idx], "exiting") as any;
 
         setTimeout(() => {
           set((draft) => {
-            const { incoming, outgoing, isMiddle } = analyzeNodeConnections(
+            const deletionInfo = getNodeDeletionType(
               id,
+              draft.nodes,
               draft.edges
             );
+            if (!deletionInfo) return;
+
+            const {
+              node,
+              incoming,
+              outgoing,
+              isLastNode,
+              isMiddle,
+              isConditional,
+              isBranchingConditional,
+            } = deletionInfo;
+
             const affected = new Set<string>();
 
-            if (isMiddle) {
-              const recon = createReconnectionEdges(incoming, outgoing);
-              recon.forEach((e) => {
-                if (!draft.edges.some((ex) => ex.id === e.id))
-                  draft.edges.push(e);
+            if (isBranchingConditional) {
+              // CASE 3: Conditional node with branches - delete entire branch structure
+              console.log(
+                `Deleting conditional branch starting from node: ${id}`
+              );
+
+              const branchInfo = findConditionalBranchNodes(
+                id,
+                draft.nodes,
+                draft.edges
+              );
+
+              console.log(
+                `Found ${branchInfo.nodesToDelete.length} nodes to delete:`,
+                branchInfo.nodesToDelete
+              );
+              console.log(`Merge node:`, branchInfo.mergeNodeId);
+              console.log(`Post-merge nodes:`, branchInfo.postMergeNodes);
+
+              // Mark all nodes in branch as exiting for staggered animation
+              branchInfo.nodesToDelete.forEach((nodeId, index) => {
+                if (nodeId !== id) {
+                  // Don't double-mark the main node
+                  setTimeout(() => {
+                    set((animDraft) => {
+                      const nodeIdx = animDraft.nodes.findIndex(
+                        (n) => n.id === nodeId
+                      );
+                      if (nodeIdx !== -1) {
+                        animDraft.nodes[nodeIdx] = markNode(
+                          animDraft.nodes[nodeIdx],
+                          "exiting"
+                        ) as any;
+                      }
+                    });
+                  }, index * 50); // Stagger animations
+                }
               });
+
+              // Create reconnection edges from incoming to post-merge nodes
+              if (branchInfo.postMergeNodes.length > 0) {
+                incoming.forEach((inEdge) => {
+                  branchInfo.postMergeNodes.forEach((targetNodeId) => {
+                    const targetNode = draft.nodes.find(
+                      (n) => n.id === targetNodeId
+                    );
+                    const sourceNode = draft.nodes.find(
+                      (n) => n.id === inEdge.source
+                    );
+                    const sourceIsConditional =
+                      (sourceNode?.data?.meta as any)?.category === "condition";
+
+                    // Find the original outgoing edge from merge to preserve targetHandle
+                    const originalOutgoingFromMerge = draft.edges.find(
+                      (e) =>
+                        e.source === branchInfo.mergeNodeId &&
+                        e.target === targetNodeId
+                    );
+
+                    let edgeData = {};
+
+                    // Preserve label and pluscontext if source is conditional
+                    if (sourceIsConditional && inEdge.data) {
+                      const originalLabel = inEdge.data.label;
+                      const originalPlusContext = inEdge.data.pluscontext;
+
+                      edgeData = {
+                        label: originalLabel,
+                        pluscontext: originalPlusContext
+                          ? {
+                              ...originalPlusContext,
+                              // Update target information in pluscontext
+                              targetId: targetNodeId,
+                              targetNodeId: targetNodeId,
+                              edgeId: `${inEdge.source}-${targetNodeId}`,
+                            }
+                          : undefined,
+                      };
+                    }
+
+                    const reconnectionEdge = {
+                      id: `${inEdge.source}-${targetNodeId}`,
+                      source: inEdge.source,
+                      target: targetNodeId,
+                      sourceHandle: inEdge.sourceHandle, // Preserve source handle from incoming
+                      targetHandle: originalOutgoingFromMerge?.targetHandle, // Preserve target handle from merge outgoing
+                      type: "buttonedge",
+                      data:
+                        Object.keys(edgeData).length > 0 ? edgeData : undefined,
+                    };
+
+                    // Only add if it doesn't already exist
+                    if (
+                      !draft.edges.some((e) => e.id === reconnectionEdge.id)
+                    ) {
+                      draft.edges.push(reconnectionEdge);
+                      console.log(
+                        `Created reconnection edge: ${inEdge.source} → ${targetNodeId}`
+                      );
+                    }
+
+                    affected.add(inEdge.source);
+                    affected.add(targetNodeId);
+                  });
+                });
+              } else {
+                // No post-merge nodes, just track incoming nodes for layout
+                incoming.forEach((e) => affected.add(e.source));
+              }
+
+              // Remove all nodes and their edges from the branch
+              draft.nodes = draft.nodes.filter(
+                (n) => !branchInfo.nodesToDelete.includes(n.id)
+              );
+              draft.edges = draft.edges.filter(
+                (e) =>
+                  !branchInfo.nodesToDelete.includes(e.source) &&
+                  !branchInfo.nodesToDelete.includes(e.target)
+              );
+            } 
+            else if (isLastNode) {
+              // CASE 1: Simple last node deletion
+              console.log(`Deleting last node: ${id}`);
+
+              // Track all incoming sources for layout update
+              incoming.forEach((e) => affected.add(e.source));
+
+              // Remove node and its edges
+              draft.nodes = draft.nodes.filter((n) => n.id !== id);
+              draft.edges = draft.edges.filter(
+                (e) => e.source !== id && e.target !== id
+              );
+            } else if (isMiddle) {
+              // CASE 2: Middle node deletion with reconnection
+              console.log(
+                `Deleting middle node: ${id}, reconnecting ${incoming.length} incoming to ${outgoing.length} outgoing`
+              );
+
+              // Create reconnection edges using existing helper
+              const recon = createReconnectionEdges(
+                incoming,
+                outgoing,
+                draft.nodes
+              );
+              console.log("recon", recon);
+              recon.forEach((e) => {
+                if (!draft.edges.some((ex) => ex.id === e.id && ex.sourceHandle === e.sourceHandle && ex.targetHandle === e.targetHandle)) {
+                 
+                  draft.edges.push(e);
+                  console.log(
+                    `Created reconnection: ${e.source} → ${e.target}`
+                  );
+                }
+              });
+
+              // Track affected nodes for layout
               incoming.forEach((e) => affected.add(e.source));
               outgoing.forEach((e) => affected.add(e.target));
+
+              // Remove node and its direct edges
+              draft.nodes = draft.nodes.filter((n) => n.id !== id);
+              draft.edges = draft.edges.filter(
+                (e) => e.source !== id && e.target !== id
+              );
+            } else {
+              // CASE 4: Simple deletion for edge cases (first node, isolated node, etc.)
+              console.log(`Simple deletion of node: ${id}`);
+
+              // Track connected nodes for layout
+              incoming.forEach((e) => affected.add(e.source));
+              outgoing.forEach((e) => affected.add(e.target));
+
+              // Remove node and its edges
+              draft.nodes = draft.nodes.filter((n) => n.id !== id);
+              draft.edges = draft.edges.filter(
+                (e) => e.source !== id && e.target !== id
+              );
             }
 
-            draft.nodes = draft.nodes.filter((n) => n.id !== id);
-            draft.edges = draft.edges.filter(
-              (e) => e.source !== id && e.target !== id
+            console.log(
+              `Layout will be triggered for affected nodes:`,
+              Array.from(affected)
             );
 
-            get().triggerLayout({
-              type: "auto",
-              affectedNodeIds: [...affected],
-            });
+            // Trigger layout with affected nodes after a brief delay to allow animations
+            setTimeout(() => {
+              get().triggerLayout({
+                type: "auto",
+                affectedNodeIds: Array.from(affected),
+              });
+            }, 100);
           });
         }, ANIMATION_MS / 2);
       }),
@@ -529,7 +946,12 @@ export const useFlowStore = create<FlowState>()(
               }
 
               const { mergeNode, edges } = result;
-
+              const conditionalNodeIndex = d.nodes.findIndex(
+                (n) => n.id === conditionalNodeId
+              );
+              if (conditionalNodeIndex !== -1) {
+                d.nodes[conditionalNodeIndex].data.mergeNodeId = mergeNode.id;
+              }
               // Add the merge node
               d.nodes.push(markNode(mergeNode, "entering") as any);
 
@@ -596,7 +1018,12 @@ export const useFlowStore = create<FlowState>()(
               }
 
               const { mergeNode, edges } = result;
-
+              const conditionalNodeIndex = d.nodes.findIndex(
+                (n) => n.id === conditionalNodeId
+              );
+              if (conditionalNodeIndex !== -1) {
+                d.nodes[conditionalNodeIndex].data.mergeNodeId = mergeNode.id;
+              }
               // Create edge from merge node to the target node
               const targetEdge = {
                 id: `${mergeNode.id}-${targetNodeId}`,

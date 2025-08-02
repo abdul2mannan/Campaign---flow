@@ -40,7 +40,6 @@ import { useAutoLayout } from "../../hooks/useAutoLayout";
 
 import "@xyflow/react/dist/style.css";
 
-
 const nodeTypes = {
   profile_visit: ProfileVisitNode,
   like_post: LikePostNode,
@@ -52,8 +51,6 @@ const nodeTypes = {
 const edgeTypes = {
   buttonedge: ButtonEdge,
 };
-
-
 
 function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   const {
@@ -129,7 +126,7 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   const handleNodeClick = useCallback((_: React.MouseEvent, n: Node) => {
     // Don't open config panel for merge nodes
     if (n.type === "merge") return;
-    
+
     setSelectedNode(n);
     setShowConfigPanel(true);
   }, []);
@@ -137,10 +134,12 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   const onSelectionChange = useCallback(
     ({ nodes: sel }: { nodes: Node[] }) => {
       // Filter out merge nodes from selection
-      const selectableNodes = sel.filter(n => n.type !== "merge");
-      
+      const selectableNodes = sel.filter((n) => n.type !== "merge");
+
       if (selectableNodes.length === 1) {
-        const live = storeNodes.find((n) => n.id === selectableNodes[0].id) || selectableNodes[0];
+        const live =
+          storeNodes.find((n) => n.id === selectableNodes[0].id) ||
+          selectableNodes[0];
         setSelectedNode(live);
         setShowConfigPanel(true);
       } else if (selectableNodes.length === 0) {
@@ -260,7 +259,7 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   /* ------------------------------ Render -------------------------------- */
 
   // Process nodes to make merge nodes non-selectable and non-draggable
-  const processedNodes = nodes.map(node => {
+  const processedNodes = nodes.map((node) => {
     if (node.type === "merge") {
       return {
         ...node,
