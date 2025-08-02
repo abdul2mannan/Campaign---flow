@@ -11,8 +11,9 @@ import {
 import "@xyflow/react/dist/style.css";
 import { createNode } from "@/campaign-builder/registry/factory";
 import { Branch } from "../types/flow-nodes";
+import { initialize } from "next/dist/server/lib/render-server";
 export const ANIMATION_MS = 0;
-export const NODE_VERTICAL_GAP = 200;
+export const NODE_VERTICAL_GAP = 100;
 
 interface LayoutState {
   autoLayoutEnabled: boolean;
@@ -21,13 +22,17 @@ interface LayoutState {
 }
 
 interface PlusContext {
-  type: "node" | "edge";
+  type: "node" | "edge" | "branch-yes" | "branch-no" | string;
   sourceId: string;
   edgeId?: string;
   targetId?: string;
   sourceNodeId?: string;
   targetNodeId?: string;
   position?: { x: number; y: number };
+}
+
+interface Edges extends Edge {
+  pluscontext?: PlusContext;
 }
 
 export type LayoutTrigger = { type: "auto"; affectedNodeIds?: string[] };
@@ -64,11 +69,14 @@ const createMergeNodeForConditional = (
     return null; // Don't create merge for "waitUntil" mode
   }
 
+  const initialPosition = conditionalNode.position;
+  const mergePosition = initialPosition.y + NODE_VERTICAL_GAP;
+  // Position below the conditional node
   // Create merge node positioned below the conditional node
   const mergeNode = createNode("merge", {
     position: {
-      x: conditionalNode.position.x,
-      y: conditionalNode.position.y, // Position below
+      x: 148, // Position to the right
+      y: mergePosition, // Position below
     },
     data: {
       branches: conditionalNode.data?.branches,
@@ -85,16 +93,26 @@ const createMergeNodeForConditional = (
     type: "buttonedge",
     data: {
       label: b.label,
+      pluscontext: {
+        type: `branch-${b.id}`,
+        sourceId: conditionalNodeId,
+        targetId: mergeNode.id,
+        edgeId: `${conditionalNodeId}-${b.id}-${mergeNode.id}`,
+        sourceNodeId: conditionalNodeId,
+        targetNodeId: mergeNode.id,
+      },
     },
   }));
+
   return {
     mergeNode,
     edges: branchEdges,
   };
 };
+
 interface FlowState extends LayoutState {
   nodes: Node[];
-  edges: Edge[];
+  edges: Edges[];
   plusContext: PlusContext | null;
 
   /* UI toggles */
@@ -124,12 +142,17 @@ interface FlowState extends LayoutState {
 
   /* Insertions that rely on ELK */
   insertAtEnd(parentId: string, nodeType: string): void;
-  insertBetweenNodes(edgeId: string, nodeType: string): void;
+  insertBetweenNodes(
+    edgeId: string,
+    nodeType: string,
+    plusContextType: string
+  ): void;
 
   createAutoMergeForConditional: (conditionalNodeId: string) => Promise<void>;
   createAutoMergeForConditionalWithTarget: (
     conditionalNodeId: string,
-    targetNodeId: string
+    targetNodeId: string,
+    targetHandleId: string
   ) => Promise<void>;
   handleDelayModeChange: (nodeId: string, newDelayMode: string) => void; // Add this
 }
@@ -228,22 +251,12 @@ export const useFlowStore = create<FlowState>()(
     /* ------------------------------- CRUD ------------------------------ */
     addNodeAtEnd: (nodeType) =>
       set((d) => {
-        const last = d.nodes[d.nodes.length - 1];
         /* Let ELK handle positioning entirely */
-        const node = createNode(nodeType, {
-          position: { x: 0, y: 0 },
-        });
-
-        if (last) {
-          d.edges.push({
-            id: `${last.id}-${node.id}`,
-            source: last.id,
-            target: node.id,
-            type: "buttonedge",
-          });
-        }
-
+        const node = createNode(nodeType);
         d.nodes.push(markNode(node, "entering") as any);
+        if ((node.data?.meta as any)?.category === "condition") {
+          get().createAutoMergeForConditional(node.id);
+        }
 
         setTimeout(() => {
           set((dd) => {
@@ -259,7 +272,7 @@ export const useFlowStore = create<FlowState>()(
 
         get().triggerLayout({
           type: "auto",
-          affectedNodeIds: [node.id, last?.id!].filter(Boolean),
+          affectedNodeIds: [node.id].filter(Boolean),
         });
       }),
 
@@ -324,6 +337,7 @@ export const useFlowStore = create<FlowState>()(
     addEdge: (edge) =>
       set((d) => {
         d.edges.push(edge);
+
         get().triggerLayout({
           type: "auto",
           affectedNodeIds: [edge.source, edge.target],
@@ -338,7 +352,15 @@ export const useFlowStore = create<FlowState>()(
       set((d) => {
         const parent = d.nodes.find((n) => n.id === parentId);
         if (!parent) return;
-        const newNode = createNode(nodeType, { position: parent.position });
+        let initialPosition = parent.position || { x: 0, y: 0 };
+        if (parent.type === "merge") {
+          initialPosition = {
+            x: parent.position.x - 136,
+            y: parent.position.y + NODE_VERTICAL_GAP,
+          };
+        }
+        const newNode = createNode(nodeType, { position: initialPosition });
+
         const isConditional =
           (newNode.data?.meta as any)?.category === "condition";
 
@@ -376,22 +398,53 @@ export const useFlowStore = create<FlowState>()(
         });
       }),
 
-    insertBetweenNodes: (edgeId, nodeType) =>
+    insertBetweenNodes: (edgeId, nodeType, plusContextType) =>
       set((d) => {
         const e = d.edges.find((ed) => ed.id === edgeId);
         if (!e) return;
+        const sourceNode = d.nodes.find((n) => n.id === e.source);
+        const targetNode = d.nodes.find((n) => n.id === e.target);
+        const targetHandle = e.targetHandle || "";
+        let initialPosition = targetNode?.position;
+        const label = e.data?.label as string;
+        const sourceIsconditional =
+          (sourceNode?.data?.meta as any)?.category === "condition";
+        //position
+        if (plusContextType === "edge") {
+          if (sourceNode?.type === "merge") {
+            initialPosition = {
+              x: sourceNode.position.x - 136,
+              y: 0,
+            };
+          } else {
+            if (sourceNode) {
+              initialPosition = { x: sourceNode.position.x, y: 0 };
+            }
+          }
+        } else if (plusContextType === "branch-yes") {
+          if (sourceIsconditional) {
+            if (sourceNode) {
+              initialPosition = { x: sourceNode.position.x - 200, y: 0 };
+            }
+          } else {
+            if (sourceNode) {
+              initialPosition = { x: sourceNode.position.x, y: 0 };
+            }
+          }
+        } else if (plusContextType === "branch-no") {
+          if (sourceIsconditional) {
+            if (sourceNode) {
+              initialPosition = { x: sourceNode.position.x + 200, y: 0 };
+            }
+          } else {
+            if (sourceNode) {
+              initialPosition = { x: sourceNode.position.x, y: 0 };
+            }
+          }
+        }
 
         // Get the target node's position to use as initial position
-        const targetNode = d.nodes.find((n) => n.id === e.target);
-        const initialPosition = targetNode
-          ? targetNode.position
-          : { x: 0, y: 0 };
-
         const newNode = createNode(nodeType, { position: initialPosition });
-        const isConditional =
-          (newNode.data?.meta as any)?.category === "condition";
-        const targetId = e.target;
-        const label = e.data?.label as string;
         // Always add the node to the nodes array
         d.nodes.push(markNode(newNode, "entering") as any);
         d.edges = d.edges.filter((ed) => ed.id !== edgeId);
@@ -403,17 +456,25 @@ export const useFlowStore = create<FlowState>()(
           type: "buttonedge",
           data: {
             label: label,
+            pluscontext: {
+              type: plusContextType,
+              sourceId: e.source,
+              targetId: newNode.id,
+            },
           },
         });
+        const isConditional =
+          (newNode.data?.meta as any)?.category === "condition";
+        const targetId = e.target;
         if (isConditional) {
           const newNodeId = newNode.id;
-
           if ((newNode.data?.delayMode as any) === "fixed") {
             setTimeout(async () => {
               try {
                 await get().createAutoMergeForConditionalWithTarget(
                   newNodeId,
-                  targetId
+                  targetId,
+                  targetHandle
                 );
               } catch (error) {
                 console.error("Failed to create merge node:", error);
@@ -422,7 +483,6 @@ export const useFlowStore = create<FlowState>()(
           }
         } else {
           // For non-conditional nodes, create both incoming and outgoing edges
-          
           d.edges.push({
             id: `${newNode.id}-${e.target}`,
             source: newNode.id,
@@ -509,7 +569,8 @@ export const useFlowStore = create<FlowState>()(
 
     createAutoMergeForConditionalWithTarget: async (
       conditionalNodeId,
-      targetNodeId
+      targetNodeId,
+      targetHandleId
     ) => {
       try {
         // Wait for any pending state updates to complete
@@ -520,7 +581,6 @@ export const useFlowStore = create<FlowState>()(
             try {
               // Get the most current state to ensure we have the latest nodes
               const currentState = get();
-
               // Use the existing helper function to create the merge node
               const result = createMergeNodeForConditional(
                 conditionalNodeId,
@@ -542,6 +602,7 @@ export const useFlowStore = create<FlowState>()(
                 id: `${mergeNode.id}-${targetNodeId}`,
                 source: mergeNode.id,
                 target: targetNodeId,
+                targetHandle: targetHandleId,
                 type: "buttonedge",
               };
 

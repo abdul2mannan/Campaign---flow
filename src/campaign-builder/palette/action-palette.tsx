@@ -29,12 +29,10 @@ export function ActionPalette({
   const insertAtEnd = useFlowStore((s) => s.insertAtEnd);
   const insertBetweenNodes = useFlowStore((s) => s.insertBetweenNodes);
   const clearPlusContext = useFlowStore((s) => s.clearPlusContext);
-
-  /* Search filter */
   const filteredNodes = Object.values(nodeRegistry).filter((node) => {
     // Filter out merge nodes from the action palette
     if (node.type === "merge") return false;
-    
+
     return (node.title + node.description)
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -43,8 +41,13 @@ export function ActionPalette({
   const handleAddNode = (nodeType: string) => {
     if (plusContext?.type === "node" && plusContext.sourceId) {
       insertAtEnd(plusContext.sourceId, nodeType);
-    } else if (plusContext?.type === "edge" && plusContext.edgeId) {
-      insertBetweenNodes(plusContext.edgeId, nodeType);
+    } else if (
+      (plusContext?.type === "edge" ||
+        plusContext?.type === "branch-yes" ||
+        plusContext?.type === "branch-no") &&
+      plusContext.edgeId
+    ) {
+      insertBetweenNodes(plusContext.edgeId, nodeType, plusContext?.type);
     } else {
       addNode(nodeType);
     }

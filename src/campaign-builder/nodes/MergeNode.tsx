@@ -31,17 +31,18 @@ export default function MergeNode({
 
   return (
     <div
-      className="relative w-72 h-4 z-10" // ← React Flow’s wrapper is *outside* this
+      className="relative h-4 z-10" // ← React Flow’s wrapper is *outside* this
       onPointerDown={stopNodeInteraction} // block clicks anywhere inside
     >
       {data.branches?.map((b, i) => (
         <Handle
           key={b.id}
           type="target"
+          position={i % 2 === 0 ? Position.Left : Position.Right}
+          className="opacity-0"
           id={b.id}
-          position={Position.Top}
           style={{
-            left: `${50 + i / 100}%`
+            top: `${50 + 1 * 50}%`, // Vertically space them out
           }}
         />
       ))}

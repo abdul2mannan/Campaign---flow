@@ -1,5 +1,5 @@
 import ELK from "elkjs/lib/elk.bundled.js";
-import type { Node, Edge } from "@xyflow/react";
+import { type Node, type Edge, Position } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 export interface LayoutOptions {
@@ -22,20 +22,22 @@ const DEFAULT_ELK_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "DOWN",
   "elk.edgeRouting": "ORTHOGONAL",
-  "elk.layered.unnecessaryBendpoints": "true",
-  "elk.spacing.nodeNode": "500",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "200",
-  "elk.spacing.edgeNode": "500",
+  "elk.spacing.nodeNode": "200",
+  "elk.spacing.edgeNode": "200",
   "elk.spacing.edgeEdge": "200",
-  "elk.layered.spacing.edgeNodeBetweenLayers": "120",
-  "elk.layered.spacing.edgeEdgeBetweenLayers": "120",
-  "elk.layered.nodePlacement.favorStraightEdges": "true",
-  "elk.layered.thoroughness": "12",
-  "elk.overlapRemoval.maxIterations": "5",
+  // "elk.layered.unnecessaryBendpoints": "true",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "200",
+  // "elk.layered.spacing.edgeNodeBetweenLayers": "200",
+  // "elk.layered.spacing.edgeEdgeBetweenLayers": "200",
+  // "elk.layered.nodePlacement.favorStraightEdges": "true",
+  "elk.layered.thoroughness": "7",
   "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+
+  // "elk.layered.nodePlacement.bk.edgeStraightening": "NONE",
+  // "org.eclipse.elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+  // "org.eclipse.elk.layered.wrapping.strategy": "MULTI_EDGE",
   "elk.animate": "true",
-  "elk.partitioning.activate":"true"
-}
+};
 // Convert React Flow nodes/edges to ELK format
 const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
   const elkOptions = {
@@ -44,24 +46,33 @@ const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {
   };
 
   // Apply custom spacing if provided
-  if (options.spacing) {
-    if (options.spacing.nodeNode) {
-      elkOptions["elk.spacing.nodeNode"] = options.spacing.nodeNode.toString();
-    }
-    if (options.spacing.nodeNodeBetweenLayers) {
-      elkOptions["elk.layered.spacing.nodeNodeBetweenLayers"] =
-        options.spacing.nodeNodeBetweenLayers.toString();
-    }
-    if (options.spacing.edgeNode) {
-      elkOptions["elk.spacing.edgeNode"] = options.spacing.edgeNode.toString();
-    }
-  }
+  // if (options.spacing) {
+  //   if (options.spacing.nodeNode) {
+  //     elkOptions["elk.spacing.nodeNode"] = options.spacing.nodeNode.toString();
+  //   }
+  //   if (options.spacing.nodeNodeBetweenLayers) {
+  //     elkOptions["elk.layered.spacing.nodeNodeBetweenLayers"] =
+  //       options.spacing.nodeNodeBetweenLayers.toString();
+  //   }
+  //   if (options.spacing.edgeNode) {
+  //     elkOptions["elk.spacing.edgeNode"] = options.spacing.edgeNode.toString();
+  //   }
+  // }
 
   // Convert nodes to ELK format
   const elkNodes = nodes.map((node) => {
     return {
       id: node.id,
-      layoutOptions: { "elk.portConstraints": "FIXED_SIDE" }, // lock them :contentReference[oaicite:3]{index=3}
+      type: node.type,
+      x: node.position?.x || 0,
+      y: node.position?.y || 0,
+      position: {
+        x: node.position.x || 0,
+        y: node.position.y || 0,
+      },
+      data: node.data,
+      measured: node.measured, // Default width if not measured
+      layoutOptions: { "elk.portConstraints": "FIXED_ORDER" },
     };
   });
 
@@ -93,20 +104,63 @@ const fromElkFormat = (
         throw new Error(`Node ${elkNode.id} not found in original nodes`);
       }
 
+      let xPosition = originalNode.position.x;
+      // console.log("Original Node:", originalNode);
+      console.log("ELK Node:", elkNode);
+      // Special handling for merge nodes - position them at the center of th
+      // eir parent node
+
+      const parentEdge = originalEdges.find(
+        (edge) => edge.target === originalNode.id
+      );
+
+      const childEdge = originalEdges.find(
+        (edge) => edge.source === originalNode.id
+      );
+      const parentNode = originalNodes.find(
+        (node) => node.id === parentEdge?.source
+      );
+
+      if (
+        (parentEdge?.data?.pluscontext as any)?.type === "branch-yes" ||
+        (parentEdge?.data?.pluscontext as any)?.type === "branch-no"
+      ) {
+        xPosition = originalNode.position.x;
+      } else if (
+        parentEdge &&
+        ((parentEdge?.data?.pluscontext as any)?.type === "edge" ||
+          parentEdge.type === "buttonedge")
+      ) {
+        xPosition = originalNode?.position.x;
+      }
+
+      if (originalNode.type === "merge") {
+        if (parentEdge) {
+          if (
+            parentNode &&
+            (parentNode.data?.meta as any)?.category === "condition"
+          ) {
+            // Calculate centered position: parent.x + (parent.width - merge.width) / 2
+            const parentWidth = parentNode.measured?.width || 0;
+            const mergeWidth = originalNode.measured?.width || 0;
+            const widthDifference = parentWidth - mergeWidth;
+            const offset = widthDifference / 2;
+            xPosition = (parentNode.position.x || 0) + offset;
+          } else {
+            xPosition = originalNode.position.x;
+          }
+        }
+      }
+      elkNode.x = xPosition;
       return {
         ...originalNode,
         position: {
-          x: elkNode.x,
+          x: xPosition,
           y: elkNode.y,
-        },
-        // Store the computed dimensions for future reference
-        measured: {
-          width: elkNode.width || 280,
-          height: elkNode.height || 120,
         },
       };
     }) || [];
-
+  console.log("Layouted Nodes:", layoutedNodes);
   return {
     nodes: layoutedNodes,
     edges: originalEdges, // Edges remain unchanged

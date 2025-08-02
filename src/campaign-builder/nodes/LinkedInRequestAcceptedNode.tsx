@@ -113,11 +113,11 @@ export default function LinkedInRequestAcceptedNode({
             <Handle
               key={b.id}
               type="source"
-              position={Position.Bottom}
+              position={i % 2 === 0 ? Position.Left : Position.Right}
               id={b.id}
-              style={{
-                left: `${50 + i / 100}%`,
-              }}
+              // style={{
+              //   top: `${50 + i * 20}%`, // Vertically space them out
+              // }}
             />
           ))}
         </>
