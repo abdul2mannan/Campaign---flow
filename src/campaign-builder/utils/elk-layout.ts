@@ -36,7 +36,8 @@ const DEFAULT_ELK_OPTIONS = {
   // "elk.layered.nodePlacement.bk.edgeStraightening": "NONE",
   // "org.eclipse.elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
   // "org.eclipse.elk.layered.wrapping.strategy": "MULTI_EDGE",
-  "elk.animate": "true",
+  // "elk.animate": "true",
+  // "elk.animTimeFactor": "1000",
 };
 // Convert React Flow nodes/edges to ELK format
 const toElkFormat = (nodes: Node[], edges: Edge[], options: LayoutOptions) => {

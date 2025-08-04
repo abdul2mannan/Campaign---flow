@@ -9,9 +9,6 @@ export function generateNodeId(type: string): string {
 }
 
 
-export function generateEdgeId(source: string, target: string): string {
-  return `edge-${source}-${target}-${generateId()}`
-}
 
 
 

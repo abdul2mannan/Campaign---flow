@@ -22,6 +22,7 @@ export function ConfigPanel({
   onSave,
 }: ConfigPanelProps) {
   const updateNode = useFlowStore((s) => s.updateNode);
+  const handleDelayModeChange = useFlowStore((s) => s.handleDelayModeChange);
   const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
   const currentNode = useFlowStore((s) =>
@@ -64,6 +65,7 @@ export function ConfigPanel({
         }
       }
     });
+      handleDelayModeChange(currentNode.id, mode);
   };
 
   const handleConfigChange = (key: string, value: any) => {

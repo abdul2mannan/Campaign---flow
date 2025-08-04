@@ -17,12 +17,9 @@ interface BaseActionNodeProps {
   nodeProps: NodeProps<Node>;
 }
 
-export function BaseActionNode({
-  nodeType,
-  nodeProps,
-}: BaseActionNodeProps) {
+export function BaseActionNode({ nodeType, nodeProps }: BaseActionNodeProps) {
   const { data, id, selected } = nodeProps;
-  
+
   const updateNode = useFlowStore((s) => s.updateNode);
   const deleteNode = useFlowStore((s) => s.removeNode);
   const setPlusContext = useFlowStore((s) => s.setPlusContext);
@@ -30,13 +27,13 @@ export function BaseActionNode({
   const currentNode = useFlowStore((s) => s.nodes.find((n) => n.id === id));
   const nodeData = (currentNode?.data || data) as any;
   const { meta, config = {}, delayMode = "instant" } = nodeData;
-  
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingDelay, setEditingDelay] = useState(false);
   const [tempDelay, setTempDelay] = useState(
     (config.delayMinutes || 1).toString()
   );
-  
+
   const connectionInProgress = useConnection(selector);
   const edges = useFlowStore((s) => s.edges);
 
@@ -120,7 +117,11 @@ export function BaseActionNode({
         {/* Top label + actions */}
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <div className="flex items-center gap-2 text-xs font-semibold">
-            <div className={`p-1 rounded-lg ${isFixed ? "bg-blue-500/10" : "bg-emerald-500/10"}`}>
+            <div
+              className={`p-1 rounded-lg ${
+                isFixed ? "bg-blue-500/10" : "bg-emerald-500/10"
+              }`}
+            >
               {topIcon}
             </div>
             {isFixed ? (
@@ -135,7 +136,10 @@ export function BaseActionNode({
                       const value = parseInt(tempDelay, 10);
                       if (!isNaN(value) && value >= 1) {
                         updateNode(id, (node) => {
-                          if (typeof node.data === "object" && node.data !== null) {
+                          if (
+                            typeof node.data === "object" &&
+                            node.data !== null
+                          ) {
                             const d = node.data as { config: any };
                             if (!d.config) d.config = {};
                             d.config.delayMinutes = value;
@@ -149,7 +153,10 @@ export function BaseActionNode({
                         const value = parseInt(tempDelay, 10);
                         if (!isNaN(value) && value >= 1) {
                           updateNode(id, (node) => {
-                            if (typeof node.data === "object" && node.data !== null) {
+                            if (
+                              typeof node.data === "object" &&
+                              node.data !== null
+                            ) {
                               const d = node.data as { config: any };
                               if (!d.config) d.config = {};
                               d.config.delayMinutes = value;
@@ -177,7 +184,9 @@ export function BaseActionNode({
                 </button>
               )
             ) : (
-              <span className="text-emerald-700 px-2 py-1 rounded-md bg-emerald-100/50">Send immediately</span>
+              <span className="text-emerald-700 px-2 py-1 rounded-md bg-emerald-100/50">
+                Send immediately
+              </span>
             )}
           </div>
 
@@ -232,9 +241,7 @@ export function BaseActionNode({
               <h3 className="font-medium text-gray-900 text-sm mb-1">
                 {meta?.title}
               </h3>
-              <p className="text-xs text-gray-500 mb-2">
-                {meta?.description}
-              </p>
+              <p className="text-xs text-gray-500 mb-2">{meta?.description}</p>
             </div>
           </div>
         </div>
