@@ -13,7 +13,7 @@ import { createNode } from "@/campaign-builder/registry/factory";
 import { Branch } from "../types/flow-nodes";
 import { initialize } from "next/dist/server/lib/render-server";
 export const ANIMATION_MS = 0;
-export const NODE_VERTICAL_GAP = 100;
+export const NODE_VERTICAL_GAP = 200;
 
 interface LayoutState {
   autoLayoutEnabled: boolean;
@@ -71,11 +71,16 @@ const createMergeNodeForConditional = (
 
   const initialPosition = conditionalNode.position;
   const mergePosition = initialPosition.y + NODE_VERTICAL_GAP;
+  const parentWidth = 288;
+  const mergeWidth = 16;
+  const widthDifference = parentWidth - mergeWidth;
+  const offset = widthDifference / 2;
+  const xPosition = (conditionalNode.position.x || 0) + offset;
   // Position below the conditional node
   // Create merge node positioned below the conditional node
   const mergeNode = createNode("merge", {
     position: {
-      x: 148, // Position to the right
+      x: xPosition,
       y: mergePosition, // Position below
     },
     data: {
@@ -1083,7 +1088,7 @@ export const useFlowStore = create<FlowState>()(
             // Conditional is connected to a target node - connect merge to this target
             const targetNodeId = existingOutgoing?.target;
             const targetHandleId = existingOutgoing?.targetHandle || "";
-d.edges = d.edges.filter(e => e.id !== existingOutgoing.id);
+            d.edges = d.edges.filter((e) => e.id !== existingOutgoing.id);
             setTimeout(async () => {
               try {
                 // Use existing function that connects merge to specific target
@@ -1097,12 +1102,15 @@ d.edges = d.edges.filter(e => e.id !== existingOutgoing.id);
                   "Failed to create merge node with target:",
                   error
                 );
-              set((restoreDraft) => {
-              if (!restoreDraft.edges.some(e => e.id === existingOutgoing.id)) {
-                restoreDraft.edges.push(existingOutgoing);
-               
-              }
-            });
+                set((restoreDraft) => {
+                  if (
+                    !restoreDraft.edges.some(
+                      (e) => e.id === existingOutgoing.id
+                    )
+                  ) {
+                    restoreDraft.edges.push(existingOutgoing);
+                  }
+                });
               }
             }, 100);
           } else {
