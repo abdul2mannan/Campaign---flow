@@ -22,6 +22,7 @@ export interface ConfigField {
   default?: any;
   options?: any[];
   optionsSource?: string;
+  apiEndpoint?: string; // Simple API endpoint for fetching options
 }
 
 export interface PrereqRules {
@@ -105,6 +106,13 @@ export const nodeRegistry: Record<
     styleKey: "action-invite-",
     component: SendInviteNode as NodeComponent,
     configSchema: [
+      // {
+      //   key: "linkedinAccount",
+      //   label: "LinkedIn Account",
+      //   type: "select",
+      //   required: true,
+      //   apiEndpoint: "/api/linkedin/accounts", // API endpoint for fetching LinkedIn accounts
+      // },
       {
         key: "message",
         label: "Connection Message",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Settings, Zap, Clock, Eye } from "lucide-react";
+import { X, Settings, Zap, Clock, Eye, Loader2 } from "lucide-react";
 import { useFlowStore } from "@/campaign-builder/store/flow-store";
 import type { Node } from "@xyflow/react";
 import type { ConfigField } from "@/campaign-builder/registry/nodeRegistry";
@@ -24,6 +24,10 @@ export function ConfigPanel({
   const updateNode = useFlowStore((s) => s.updateNode);
   const handleDelayModeChange = useFlowStore((s) => s.handleDelayModeChange);
   const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
+  
+  // API state
+  const [apiOptions, setApiOptions] = useState<Record<string, any[]>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   const currentNode = useFlowStore((s) =>
     node ? s.nodes.find((n) => n.id === node.id) ?? node : null
@@ -32,8 +36,65 @@ export function ConfigPanel({
   useEffect(() => {
     if (!currentNode) return;
     const d: any = currentNode.data;
+    // Load saved configuration including all field values
     setLocalConfig({ ...d.config });
   }, [currentNode?.data?.config, currentNode?.data?.delayMode]);
+
+  // Simple fetch function
+  const fetchOptions = async (fieldKey: string, endpoint: string) => {
+    setLoading(prev => ({ ...prev, [fieldKey]: true }));
+    
+    try {
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      
+      // Simple data extraction - assumes API returns { data: [...] } or just [...]
+      const options = Array.isArray(data) ? data : (data.data || data.accounts || data.items || []);
+      
+      setApiOptions(prev => ({ ...prev, [fieldKey]: options }));
+    } catch (error) {
+      console.error(`Failed to fetch ${fieldKey}:`, error);
+      setApiOptions(prev => ({ ...prev, [fieldKey]: [] }));
+    } finally {
+      setLoading(prev => ({ ...prev, [fieldKey]: false }));
+    }
+  };
+
+  // Fetch API data when panel opens
+  useEffect(() => {
+    if (!currentNode || !isOpen) return;
+    
+    const { meta } = currentNode.data as any;
+    const configSchema: ConfigField[] = (meta?.configSchema || []).filter(
+      (f: ConfigField) => !["delay", "delayMinutes", "waitTime"].includes(f.key)
+    );
+
+    // Find fields that need API data and haven't been fetched yet
+    configSchema.forEach(field => {
+      if (field.apiEndpoint && !apiOptions[field.key] && !loading[field.key]) {
+        fetchOptions(field.key, field.apiEndpoint);
+      }
+    });
+  }, [currentNode, isOpen]);
+
+  // Save configuration explicitly when requested
+  const handleSaveConfiguration = () => {
+    if (!currentNode) return;
+    
+    updateNode(currentNode.id, (n) => {
+      if (typeof n.data === "object" && n.data !== null) {
+        const d = n.data as any;
+        if (!d.config) d.config = {};
+        // Ensure all local config is saved to node data
+        Object.keys(localConfig).forEach(key => {
+          d.config[key] = localConfig[key];
+        });
+      }
+    });
+    
+    onSave?.();
+    console.log('Configuration saved:', localConfig);
+  };
 
   if (!isOpen || !currentNode) return null;
 
@@ -69,8 +130,11 @@ export function ConfigPanel({
   };
 
   const handleConfigChange = (key: string, value: any) => {
+    // Update local state immediately for responsive UI
     const newConfig = { ...localConfig, [key]: value };
     setLocalConfig(newConfig);
+    
+    // Save to node data immediately for persistence
     updateNode(currentNode.id, (n) => {
       if (typeof n.data === "object" && n.data !== null) {
         const d = n.data as any;
@@ -78,10 +142,14 @@ export function ConfigPanel({
         d.config[key] = value;
       }
     });
+    
+    console.log(`Saved ${key}:`, value); // Debug log
   };
 
   const renderConfigField = (field: ConfigField) => {
+    // Get current value from saved config, fallback to field default
     const currentValue = config[field.key] ?? field.default ?? "";
+    
     switch (field.type) {
       case "string":
         return (
@@ -125,21 +193,55 @@ export function ConfigPanel({
           </label>
         );
       case "select":
+        let options: any[] = [];
+        
+        if (field.apiEndpoint) {
+          // API options
+          options = apiOptions[field.key] || [];
+        } else {
+          // Static options
+          options = field.options || [];
+        }
+        
+        const isLoading = loading[field.key];
+        
         return (
-          <select
-            value={currentValue}
-            onChange={(e) => handleConfigChange(field.key, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-          >
-            {field.options?.map((option: any) => (
-              <option
-                key={option.value || option}
-                value={option.value || option}
-              >
-                {option.label || option}
+          <div className="relative">
+            <select
+              value={currentValue}
+              onChange={(e) => handleConfigChange(field.key, e.target.value)}
+              disabled={isLoading}
+              className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white disabled:bg-gray-50"
+            >
+              <option value="">
+                {isLoading ? 'Loading...' : `Select ${field.label}`}
               </option>
-            ))}
-          </select>
+              {options.map((option: any, index) => {
+                // Handle both object and string options
+                const value = option.id || option.value || option;
+                const label = option.name || option.label || option.email || option;
+                
+                return (
+                  <option key={value || index} value={value}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+            
+            {isLoading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+              </div>
+            )}
+            
+            {/* Show saved indicator for non-empty values */}
+            {currentValue && !isLoading && (
+              <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                <div className="w-2 h-2 bg-green-500 rounded-full" title="Saved"></div>
+              </div>
+            )}
+          </div>
         );
       default:
         return <div className="text-sm text-gray-500">Unsupported type</div>;
@@ -167,7 +269,7 @@ export function ConfigPanel({
           </div>
           <button
             onClick={() => {
-              onSave?.();
+              handleSaveConfiguration();
               onClose();
             }}
             className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-white/50 rounded-lg"
@@ -327,7 +429,7 @@ export function ConfigPanel({
       <div className="border-t border-gray-200 p-6 bg-gray-50">
         <button
           onClick={() => {
-            onSave?.();
+            handleSaveConfiguration();
             onClose();
           }}
           className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
