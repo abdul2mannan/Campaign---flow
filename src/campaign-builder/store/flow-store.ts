@@ -103,7 +103,7 @@ const createMergeNodeForConditional = (
       },
     },
   }));
- console.log("branchEdges", branchEdges);
+
   return {
     mergeNode,
     edges: branchEdges,
@@ -400,7 +400,7 @@ const createReconnectionEdges = (
       if (targetIsMerge) {
         targetHandle = outE.targetHandle;
       }
-  
+
       return {
         id: `${inE.source}-${sourceHandle}-${outE.target}`,
         source: inE.source,
@@ -413,7 +413,7 @@ const createReconnectionEdges = (
     })
   );
 
-const markNode = (node: Node, state: "entering" | "exiting") => ({
+const markNode = (node: Node, state: "entering" | "exiting" | "stable") => ({
   ...node,
   data: { ...node.data, animationState: state },
 });
@@ -544,22 +544,12 @@ export const useFlowStore = create<FlowState>()(
 
             if (isBranchingConditional) {
               // CASE 3: Conditional node with branches - delete entire branch structure
-              console.log(
-                `Deleting conditional branch starting from node: ${id}`
-              );
 
               const branchInfo = findConditionalBranchNodes(
                 id,
                 draft.nodes,
                 draft.edges
               );
-
-              console.log(
-                `Found ${branchInfo.nodesToDelete.length} nodes to delete:`,
-                branchInfo.nodesToDelete
-              );
-              console.log(`Merge node:`, branchInfo.mergeNodeId);
-              console.log(`Post-merge nodes:`, branchInfo.postMergeNodes);
 
               // Mark all nodes in branch as exiting for staggered animation
               branchInfo.nodesToDelete.forEach((nodeId, index) => {
@@ -638,9 +628,6 @@ export const useFlowStore = create<FlowState>()(
                       !draft.edges.some((e) => e.id === reconnectionEdge.id)
                     ) {
                       draft.edges.push(reconnectionEdge);
-                      console.log(
-                        `Created reconnection edge: ${inEdge.source} → ${targetNodeId}`
-                      );
                     }
 
                     affected.add(inEdge.source);
@@ -661,10 +648,8 @@ export const useFlowStore = create<FlowState>()(
                   !branchInfo.nodesToDelete.includes(e.source) &&
                   !branchInfo.nodesToDelete.includes(e.target)
               );
-            } 
-            else if (isLastNode) {
+            } else if (isLastNode) {
               // CASE 1: Simple last node deletion
-              console.log(`Deleting last node: ${id}`);
 
               // Track all incoming sources for layout update
               incoming.forEach((e) => affected.add(e.source));
@@ -676,9 +661,6 @@ export const useFlowStore = create<FlowState>()(
               );
             } else if (isMiddle) {
               // CASE 2: Middle node deletion with reconnection
-              console.log(
-                `Deleting middle node: ${id}, reconnecting ${incoming.length} incoming to ${outgoing.length} outgoing`
-              );
 
               // Create reconnection edges using existing helper
               const recon = createReconnectionEdges(
@@ -686,14 +668,17 @@ export const useFlowStore = create<FlowState>()(
                 outgoing,
                 draft.nodes
               );
-              console.log("recon", recon);
+
               recon.forEach((e) => {
-                if (!draft.edges.some((ex) => ex.id === e.id && ex.sourceHandle === e.sourceHandle && ex.targetHandle === e.targetHandle)) {
-                 
+                if (
+                  !draft.edges.some(
+                    (ex) =>
+                      ex.id === e.id &&
+                      ex.sourceHandle === e.sourceHandle &&
+                      ex.targetHandle === e.targetHandle
+                  )
+                ) {
                   draft.edges.push(e);
-                  console.log(
-                    `Created reconnection: ${e.source} → ${e.target}`
-                  );
                 }
               });
 
@@ -708,7 +693,6 @@ export const useFlowStore = create<FlowState>()(
               );
             } else {
               // CASE 4: Simple deletion for edge cases (first node, isolated node, etc.)
-              console.log(`Simple deletion of node: ${id}`);
 
               // Track connected nodes for layout
               incoming.forEach((e) => affected.add(e.source));
@@ -720,11 +704,6 @@ export const useFlowStore = create<FlowState>()(
                 (e) => e.source !== id && e.target !== id
               );
             }
-
-            console.log(
-              `Layout will be triggered for affected nodes:`,
-              Array.from(affected)
-            );
 
             // Trigger layout with affected nodes after a brief delay to allow animations
             setTimeout(() => {
@@ -1095,35 +1074,179 @@ export const useFlowStore = create<FlowState>()(
         if (!isConditionalNode) return;
 
         if (newDelayMode === "fixed") {
-          setTimeout(() => {
-            get().createAutoMergeForConditional(nodeId);
-          }, 100);
+          // CREATE BRANCH STRUCTURE with existing target connection
+
+          // Find existing outgoing connection from conditional node (waitUntil mode has single output)
+          const existingOutgoing = d.edges.find((e) => e.source === nodeId);
+
+          if (existingOutgoing) {
+            // Conditional is connected to a target node - connect merge to this target
+            const targetNodeId = existingOutgoing?.target;
+            const targetHandleId = existingOutgoing?.targetHandle || "";
+d.edges = d.edges.filter(e => e.id !== existingOutgoing.id);
+            setTimeout(async () => {
+              try {
+                // Use existing function that connects merge to specific target
+                await get().createAutoMergeForConditionalWithTarget(
+                  nodeId,
+                  targetNodeId,
+                  targetHandleId
+                );
+              } catch (error) {
+                console.error(
+                  "Failed to create merge node with target:",
+                  error
+                );
+              set((restoreDraft) => {
+              if (!restoreDraft.edges.some(e => e.id === existingOutgoing.id)) {
+                restoreDraft.edges.push(existingOutgoing);
+               
+              }
+            });
+              }
+            }, 100);
+          } else {
+            // No existing connection - create basic merge structure
+
+            setTimeout(() => {
+              get().createAutoMergeForConditional(nodeId);
+            }, 100);
+          }
         } else if (newDelayMode === "waitUntil") {
-          // Remove merge node and its connections if switching to waitUntil mode
-          const connectedMergeNodes = d.edges
-            .filter((e) => e.source === nodeId)
-            .map((e) =>
-              d.nodes.find((n) => n.id === e.target && n.type === "merge")
-            )
-            .filter(Boolean);
+          // REMOVE BRANCH STRUCTURE - Enhanced logic
 
-          connectedMergeNodes.forEach((mergeNode) => {
-            if (mergeNode) {
-              // Remove merge node and all its connections
-              d.nodes = d.nodes.filter((n) => n.id !== mergeNode.id);
-              d.edges = d.edges.filter(
-                (e) =>
-                  e.source !== mergeNode.id &&
-                  e.target !== mergeNode.id &&
-                  e.source !== nodeId // Remove the branching edges from conditional node
+          // Find the complete branch structure using existing logic
+          const branchInfo = findConditionalBranchNodes(
+            nodeId,
+            d.nodes,
+            d.edges
+          );
+
+          // Filter out the conditional node itself (we want to keep it)
+          const nodesToDelete = branchInfo.nodesToDelete.filter(
+            (id) => id !== nodeId
+          );
+          const postMergeNodeIds = branchInfo.postMergeNodes;
+
+          if (nodesToDelete.length === 0) {
+            // Still need to clean up any branch edges from the conditional node
+            d.edges = d.edges.filter(
+              (e) =>
+                !(
+                  e.source === nodeId &&
+                  (e.sourceHandle === "yes" || e.sourceHandle === "no")
+                )
+            );
+            return;
+          }
+
+          // Get incoming edges to the conditional node (for reconnection source)
+          const conditionalIncoming = d.edges.filter(
+            (e) => e.target === nodeId
+          );
+
+          // Set up affected nodes for layout
+          const affected = new Set<string>();
+          affected.add(nodeId); // The conditional node itself
+
+          // Add incoming sources to affected nodes
+          conditionalIncoming.forEach((e) => affected.add(e.source));
+
+          // Add post-merge nodes to affected
+          postMergeNodeIds.forEach((id) => affected.add(id));
+
+          // STEP 1: Mark branch nodes for staggered exit animation (excluding conditional)
+          nodesToDelete.forEach((nodeToDeleteId, index) => {
+            setTimeout(() => {
+              set((animDraft) => {
+                const nodeIdx = animDraft.nodes.findIndex(
+                  (n) => n.id === nodeToDeleteId
+                );
+                if (nodeIdx !== -1) {
+                  animDraft.nodes[nodeIdx] = markNode(
+                    animDraft.nodes[nodeIdx],
+                    "exiting"
+                  ) as any;
+                }
+              });
+            }, index * 50); // Stagger animations
+          });
+
+          // STEP 2: After animation delay, perform the actual removal and reconnection
+          setTimeout(() => {
+            set((draft) => {
+              // Create reconnection edges from conditional node to post-merge nodes
+              if (postMergeNodeIds.length > 0) {
+                postMergeNodeIds.forEach((targetNodeId) => {
+                  const targetNode = draft.nodes.find(
+                    (n) => n.id === targetNodeId
+                  );
+
+                  // Find the original edge from merge to target to preserve targetHandle
+                  const originalMergeEdge = draft.edges.find(
+                    (e) =>
+                      e.source === branchInfo.mergeNodeId &&
+                      e.target === targetNodeId
+                  );
+
+                  // Create reconnection edge from conditional directly to post-merge node
+                  const reconnectionEdge = {
+                    id: `${nodeId}-${targetNodeId}`,
+                    source: nodeId,
+                    target: targetNodeId,
+                    sourceHandle: undefined, // Single output for waitUntil mode
+                    targetHandle: originalMergeEdge?.targetHandle, // Preserve target handle
+                    type: "buttonedge",
+                    data: undefined, // Clean edge data for waitUntil mode
+                  };
+
+                  // Only add if it doesn't already exist
+                  if (
+                    !draft.edges.some(
+                      (e) =>
+                        e.id === reconnectionEdge.id &&
+                        e.source === reconnectionEdge.source &&
+                        e.target === reconnectionEdge.target
+                    )
+                  ) {
+                    draft.edges.push(reconnectionEdge);
+                  }
+                });
+              }
+
+              // Remove all branch nodes and their edges
+              draft.nodes = draft.nodes.filter(
+                (n) => !nodesToDelete.includes(n.id)
               );
-            }
-          });
+              draft.edges = draft.edges.filter(
+                (e) =>
+                  !nodesToDelete.includes(e.source) &&
+                  !nodesToDelete.includes(e.target)
+              );
 
-          get().triggerLayout({
-            type: "auto",
-            affectedNodeIds: [nodeId],
-          });
+              // Clean up the conditional node data
+              const conditionalNodeIndex = draft.nodes.findIndex(
+                (n) => n.id === nodeId
+              );
+              if (conditionalNodeIndex !== -1) {
+                const conditionalNode = draft.nodes[conditionalNodeIndex];
+                if (conditionalNode.data) {
+                  // Remove merge node reference
+                  delete conditionalNode.data.mergeNodeId;
+
+                  // Clear branch-specific configuration if needed
+                  // Keep other node data intact
+                }
+              }
+            });
+
+            // STEP 3: Trigger layout update for affected nodes
+
+            get().triggerLayout({
+              type: "auto",
+              affectedNodeIds: Array.from(affected),
+            });
+          }, ANIMATION_MS / 2 + nodesToDelete.length * 50); // Wait for staggered animations
         }
       }),
   }))

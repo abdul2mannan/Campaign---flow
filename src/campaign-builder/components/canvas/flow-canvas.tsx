@@ -20,11 +20,11 @@ import {
 } from "@xyflow/react";
 import { Plus, Copy, Loader2 } from "lucide-react";
 
-import ProfileVisitNode from "@/campaign-builder/nodes/ProfileVisitNode";
-import LikePostNode from "@/campaign-builder/nodes/LikePostNode";
-import SendInviteNode from "@/campaign-builder/nodes/SendInviteNode";
-import LinkedInRequestAcceptedNode from "@/campaign-builder/nodes/LinkedInRequestAcceptedNode";
-import MergeNode from "@/campaign-builder/nodes/MergeNode";
+import ProfileVisitNode from "@/cb/nodes/ProfileVisitNode";
+import LikePostNode from "@/cb/nodes/LikePostNode";
+import SendInviteNode from "@/cb/nodes/SendInviteNode";
+import LinkedInRequestAcceptedNode from "@/cb/nodes/LinkedInRequestAcceptedNode";
+import MergeNode from "@/cb/nodes/MergeNode";
 
 import { ActionPalette } from "@/campaign-builder/palette/action-palette";
 import { ConfigPanel } from "@/campaign-builder/panels/index";
